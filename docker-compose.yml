@@ -1,0 +1,36 @@
+services:
+  orchestrator:
+    build:
+      context: .
+    image: mithrillog:latest
+    command: ["python", "scripts/run_orchestrator.py", "--config", "configs/default.yaml"]
+    working_dir: /app
+    volumes:
+      - ./data:/app/data
+      - ./configs:/app/configs
+      - ./prompts:/app/prompts
+      - ./models:/app/models
+    ports:
+      - "5514:5514/udp"
+      - "5614:5614"
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+
+  api:
+    image: mithrillog:latest
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "9000"]
+    working_dir: /app
+    ports:
+      - "9000:9000"
+    volumes:
+      - ./data:/app/data
+      - ./configs:/app/configs
+      - ./prompts:/app/prompts
+      - ./models:/app/models
+    environment:
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      - orchestrator
+    restart: unless-stopped
+
