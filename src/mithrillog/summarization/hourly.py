@@ -63,7 +63,18 @@ class HourlySummarizer:
 
         highlights_sorted = sorted(
             highlights, key=lambda item: item.get("occurrences", 1), reverse=True
-        )[:20]
+        )
+        limited_highlights = highlights_sorted[:5]
+        condensed_highlights = [
+            {
+                "severity": item.get("severity", "info"),
+                "host": item.get("host", "unknown"),
+                "app": item.get("app", "-"),
+                "occurrences": item.get("occurrences", 1),
+                "message": self._clean_message(item.get("message", ""))[:160],
+            }
+            for item in limited_highlights
+        ]
 
         stats_struct = {
             "total_events": total_events,
@@ -77,10 +88,10 @@ class HourlySummarizer:
             "window_start": start.isoformat(),
             "window_end": end.isoformat(),
             "stats_table": self._format_stats(stats_struct),
-            "minute_rollup": self._format_minute_rollup(minute_rollup[-10:]),
-            "highlight_table": self._format_highlights(highlights_sorted),
+            "minute_rollup": self._clip_text(self._format_minute_rollup(minute_rollup[-5:])),
+            "highlight_table": self._clip_text(self._format_highlights(limited_highlights)),
             "stats": stats_struct,
-            "highlights": highlights_sorted,
+            "highlights": condensed_highlights,
         }
 
         summary_text = self.llm.generate(self.prompt, variables)
@@ -93,7 +104,7 @@ class HourlySummarizer:
             "anomalies": anomaly_text,
             "stats": stats_struct,
             "minute_rollup": minute_rollup,
-            "highlights": highlights_sorted,
+            "highlights": highlights_sorted[:10],
         }
 
         report_path = self.report_dir / f"{start:%Y/%m/%d/%H}.json"
@@ -139,9 +150,21 @@ class HourlySummarizer:
             app = item.get("app", "-")
             severity = item.get("severity", "info")
             occ = item.get("occurrences", 1)
-            message = item.get("message", "")
+            message = HourlySummarizer._clean_message(item.get("message", ""))
             lines.append(
                 f"  - [{severity}] {host}/{app} ({occ}x): {message[:200]}"
             )
         return "\n".join(lines)
+
+    @staticmethod
+    def _clean_message(message: str) -> str:
+        if "] " in message:
+            message = message.split("] ", 1)[-1]
+        return message.replace("  ", " ").strip()
+
+    @staticmethod
+    def _clip_text(text: str, max_chars: int = 1200) -> str:
+        if len(text) <= max_chars:
+            return text
+        return text[: max_chars - 30] + "\n... truncated ..."
 
