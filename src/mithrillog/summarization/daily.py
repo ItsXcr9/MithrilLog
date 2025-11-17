@@ -59,7 +59,18 @@ class DailySummarizer:
 
         highlights_sorted = sorted(
             highlights, key=lambda item: item.get("occurrences", 1), reverse=True
-        )[:50]
+        )
+        limited_highlights = highlights_sorted[:15]
+        condensed_highlights = [
+            {
+                "severity": item.get("severity", "info"),
+                "host": item.get("host", "unknown"),
+                "app": item.get("app", "-"),
+                "occurrences": item.get("occurrences", 1),
+                "message": (item.get("message", "") or "")[:200],
+            }
+            for item in limited_highlights
+        ]
 
         stats_struct = {
             "total_events": stats_counter["total_events"],
@@ -74,9 +85,9 @@ class DailySummarizer:
             "day_end": day_end.isoformat(),
             "stats_table": self._format_stats(stats_struct),
             "hourly_digest": self._format_hourly(hourly_links[-12:]),
-            "highlight_table": self._format_highlights(highlights_sorted),
+            "highlight_table": self._format_highlights(limited_highlights),
             "stats": stats_struct,
-            "highlights": highlights_sorted,
+            "highlights": condensed_highlights,
         }
 
         summary_text = self.llm.generate(self.prompt, variables)
@@ -87,7 +98,7 @@ class DailySummarizer:
             "summary": summary_text,
             "stats": stats_struct,
             "hourly_links": hourly_links,
-            "highlights": highlights_sorted,
+            "highlights": highlights_sorted[:30],
         }
 
         report_path = self.report_dir / f"{day_start:%Y/%m/%d}.json"
