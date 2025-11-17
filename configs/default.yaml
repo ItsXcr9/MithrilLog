@@ -1,8 +1,8 @@
 environment: dev
 llm:
   backend: llama_cpp
-  model_path: ./models/tinyllama-1.1b-chat-v1.0-q4_0.gguf
-  context_length: 2048
+  model_path: ./models/llama4-dolphin-8B.Q3_K_M.gguf
+  context_length: 8192
   temperature: 0.2
   top_p: 0.9
   max_tokens: 1024

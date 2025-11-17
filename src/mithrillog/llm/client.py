@@ -56,12 +56,17 @@ class LLMClient:
         rendered = template.render(variables)
         system_prompt = rendered["system"]
         user_prompt = rendered["user"]
-        max_chars = self.config.context_length * 3
+        # Conservative estimate: ~4 chars per token, leave room for system prompt and response
+        # Reserve ~200 tokens for system + response, so max input tokens = context_length - 200 - max_tokens
+        max_input_tokens = self.config.context_length - 200 - self.config.max_tokens
+        max_chars = max_input_tokens * 3  # Conservative: 3 chars per token
         if len(user_prompt) > max_chars:
             user_prompt = (
-                user_prompt[: max_chars - 200]
-                + "\n... truncated input to stay within context window ..."
+                user_prompt[: max_chars - 50]
+                + "\n... [truncated] ..."
             )
+        if len(system_prompt) > 200:
+            system_prompt = system_prompt[:200] + "..."
         if self._llama is None:
             return self._fallback_summary(variables)
         response = self._llama.create_chat_completion(  # type: ignore[union-attr]

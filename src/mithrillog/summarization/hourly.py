@@ -64,14 +64,14 @@ class HourlySummarizer:
         highlights_sorted = sorted(
             highlights, key=lambda item: item.get("occurrences", 1), reverse=True
         )
-        limited_highlights = highlights_sorted[:5]
+        limited_highlights = highlights_sorted[:3]
         condensed_highlights = [
             {
                 "severity": item.get("severity", "info"),
                 "host": item.get("host", "unknown"),
                 "app": item.get("app", "-"),
                 "occurrences": item.get("occurrences", 1),
-                "message": self._clean_message(item.get("message", ""))[:160],
+                "message": self._clean_message(item.get("message", ""))[:100],
             }
             for item in limited_highlights
         ]
@@ -79,17 +79,17 @@ class HourlySummarizer:
         stats_struct = {
             "total_events": total_events,
             "unique_events": unique_events,
-            "by_severity": dict(severity_counter.most_common()),
-            "top_hosts": dict(host_counter.most_common(10)),
-            "top_apps": dict(app_counter.most_common(10)),
+            "by_severity": dict(severity_counter.most_common(5)),
+            "top_hosts": dict(host_counter.most_common(5)),
+            "top_apps": dict(app_counter.most_common(5)),
         }
 
         variables = {
             "window_start": start.isoformat(),
             "window_end": end.isoformat(),
-            "stats_table": self._format_stats(stats_struct),
-            "minute_rollup": self._clip_text(self._format_minute_rollup(minute_rollup[-5:])),
-            "highlight_table": self._clip_text(self._format_highlights(limited_highlights)),
+            "stats_table": self._clip_text(self._format_stats(stats_struct), max_chars=300),
+            "minute_rollup": self._clip_text(self._format_minute_rollup(minute_rollup[-2:]), max_chars=200),
+            "highlight_table": self._clip_text(self._format_highlights(limited_highlights), max_chars=300),
             "stats": stats_struct,
             "highlights": condensed_highlights,
         }
@@ -115,52 +115,111 @@ class HourlySummarizer:
     @staticmethod
     def _format_stats(stats: Dict[str, Any]) -> str:
         lines = [
-            f"Total events: {stats.get('total_events', 0)}",
-            f"Unique events: {stats.get('unique_events', 0)}",
-            "By severity:",
+            f"Total: {stats.get('total_events', 0)}, Unique: {stats.get('unique_events', 0)}",
         ]
-        for severity, count in stats.get("by_severity", {}).items():
-            lines.append(f"  - {severity}: {count}")
-        lines.append("Top hosts:")
-        for host, count in stats.get("top_hosts", {}).items():
-            lines.append(f"  - {host}: {count}")
-        lines.append("Top apps:")
-        for app, count in stats.get("top_apps", {}).items():
-            lines.append(f"  - {app}: {count}")
+        sev_items = list(stats.get("by_severity", {}).items())[:3]
+        if sev_items:
+            sev_str = ", ".join(f"{s}:{c}" for s, c in sev_items)
+            lines.append(f"Severity: {sev_str}")
+        host_items = list(stats.get("top_hosts", {}).items())[:3]
+        if host_items:
+            host_str = ", ".join(f"{h}:{c}" for h, c in host_items)
+            lines.append(f"Hosts: {host_str}")
+        app_items = list(stats.get("top_apps", {}).items())[:3]
+        if app_items:
+            app_str = ", ".join(f"{a}:{c}" for a, c in app_items)
+            lines.append(f"Apps: {app_str}")
         return "\n".join(lines)
 
     @staticmethod
     def _format_minute_rollup(rollup: List[Dict[str, Any]]) -> str:
         if not rollup:
-            return "No minute data available."
-        lines = ["Minute rollup (latest 10):"]
+            return "No minute data."
+        lines = ["Latest minutes:"]
         for entry in rollup:
-            lines.append(
-                f"  - {entry['minute']}: total={entry['total']} unique={entry['unique']}"
-            )
+            time_str = entry['minute'].split('T')[1][:5] if 'T' in entry['minute'] else entry['minute']
+            lines.append(f"{time_str}: t={entry['total']} u={entry['unique']}")
         return "\n".join(lines)
 
     @staticmethod
     def _format_highlights(highlights: List[Dict[str, Any]]) -> str:
         if not highlights:
-            return "No highlight samples captured."
+            return "No samples."
         lines = ["Samples:"]
         for item in highlights:
-            host = item.get("host", "unknown")
-            app = item.get("app", "-")
+            host = item.get("host", "unknown")[:10]
+            app = item.get("app", "-")[:8]
             severity = item.get("severity", "info")
             occ = item.get("occurrences", 1)
-            message = HourlySummarizer._clean_message(item.get("message", ""))
-            lines.append(
-                f"  - [{severity}] {host}/{app} ({occ}x): {message[:200]}"
-            )
+            message = HourlySummarizer._clean_message(item.get("message", ""))[:50]
+            lines.append(f"[{severity}] {host}/{app}({occ}x): {message}")
         return "\n".join(lines)
 
     @staticmethod
     def _clean_message(message: str) -> str:
+        # Remove syslog prefix if present
         if "] " in message:
             message = message.split("] ", 1)[-1]
-        return message.replace("  ", " ").strip()
+        
+        # Try to extract key info from JSON logs
+        if message.strip().startswith("{"):
+            try:
+                import json
+                data = json.loads(message)
+                # MongoDB format: check nested attr.message.msg
+                if "attr" in data and isinstance(data["attr"], dict):
+                    attr = data["attr"]
+                    if "message" in attr and isinstance(attr["message"], dict):
+                        msg_data = attr["message"]
+                        if "msg" in msg_data:
+                            msg_text = str(msg_data["msg"])
+                            # Extract key part (e.g., "saving checkpoint snapshot min: 162")
+                            if len(msg_text) > 60:
+                                # Take first meaningful part
+                                parts = msg_text.split(",")
+                                if parts:
+                                    msg_text = parts[0]
+                            return f"{data.get('c', '')}: {msg_text}"[:80]
+                
+                # Direct msg field
+                if "msg" in data:
+                    msg_val = data["msg"]
+                    if isinstance(msg_val, str):
+                        return msg_val[:80]
+                    elif isinstance(msg_val, dict) and "msg" in msg_val:
+                        return str(msg_val["msg"])[:80]
+                
+                # message field
+                if "message" in data:
+                    msg = data["message"]
+                    if isinstance(msg, dict) and "msg" in msg:
+                        return str(msg["msg"])[:80]
+                    return str(msg)[:80]
+                
+                # MongoDB format: c + msg
+                if "c" in data:
+                    component = data.get("c", "")
+                    msg_text = data.get("msg", "")
+                    if msg_text:
+                        return f"{component}: {msg_text}"[:80]
+                    return component[:80]
+            except (json.JSONDecodeError, KeyError, TypeError):
+                pass
+        
+        # For very long messages, try to extract first meaningful part
+        message = message.replace("  ", " ").strip()
+        # If it's still very long, take first sentence or first 80 chars
+        if len(message) > 100:
+            # Try to find first sentence
+            for sep in [". ", "! ", "? ", "\n", "; "]:
+                if sep in message:
+                    message = message.split(sep, 1)[0]
+                    break
+            # Final truncation
+            if len(message) > 80:
+                message = message[:77] + "..."
+        
+        return message
 
     @staticmethod
     def _clip_text(text: str, max_chars: int = 1200) -> str:
