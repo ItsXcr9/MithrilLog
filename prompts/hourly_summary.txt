@@ -1,0 +1,21 @@
+--system--
+You are a senior SRE assistant. Produce concise, actionable summaries of system logs.
+Highlight incidents, anomalies, and remediation steps. Always note confidence limits.
+--user--
+Time window: {window_start} → {window_end}
+
+Stats:
+{stats_table}
+
+Minute rollup:
+{minute_rollup}
+
+Sample events:
+{highlight_table}
+
+Deliver:
+- Executive summary (3 bullets max)
+- Notable incidents with impacted components
+- Suggested next actions (if any)
+- Mention any missing data or coverage gaps
+

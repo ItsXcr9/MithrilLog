@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MithrilLog Summaries</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <header>
+      <h1>MithrilLog Summaries</h1>
+      <p class="subtitle">
+        Live hourly and daily insights produced by the local LLM.
+      </p>
+    </header>
+
+    <main>
+      <section>
+        <div class="section-header">
+          <h2>Hourly Summaries</h2>
+          <div class="controls">
+            <label>
+              Show last
+              <select id="hourly-limit">
+                <option value="6">6</option>
+                <option value="12">12</option>
+                <option value="24">24</option>
+              </select>
+              hours
+            </label>
+            <button id="hourly-refresh">Refresh</button>
+          </div>
+        </div>
+        <div id="hourly-container" class="card-grid"></div>
+      </section>
+
+      <section>
+        <div class="section-header">
+          <h2>Daily Summaries</h2>
+          <div class="controls">
+            <label>
+              Show last
+              <select id="daily-limit">
+                <option value="7">7</option>
+                <option value="10">10</option>
+                <option value="14">14</option>
+              </select>
+              days
+            </label>
+            <button id="daily-refresh">Refresh</button>
+          </div>
+        </div>
+        <div id="daily-container" class="card-grid"></div>
+      </section>
+    </main>
+
+    <footer>
+      <span>
+        Data source:
+        <code>/summaries/hourly</code>,
+        <code>/summaries/daily</code>
+      </span>
+    </footer>
+
+    <template id="summary-card-template">
+      <article class="card">
+        <header>
+          <h3 class="window"></h3>
+          <span class="meta"></span>
+        </header>
+        <section class="summary"></section>
+        <details>
+          <summary>More details</summary>
+          <div class="details">
+            <div class="stats"></div>
+            <div class="highlights"></div>
+            <pre class="anomalies"></pre>
+          </div>
+        </details>
+      </article>
+    </template>
+
+    <script>
+      const hourlyContainer = document.getElementById("hourly-container");
+      const dailyContainer = document.getElementById("daily-container");
+      const hourlyLimit = document.getElementById("hourly-limit");
+      const dailyLimit = document.getElementById("daily-limit");
+      const hourlyRefresh = document.getElementById("hourly-refresh");
+      const dailyRefresh = document.getElementById("daily-refresh");
+      const template = document.getElementById("summary-card-template");
+
+      const formatDateRange = (start, end) => {
+        const startDate = new Date(start);
+        const endDate = new Date(end);
+        return `${startDate.toLocaleString()} → ${endDate.toLocaleString()}`;
+      };
+
+      const renderStats = (stats) => {
+        if (!stats || stats.total_events === undefined) return "No stats.";
+        const severity = Object.entries(stats.by_severity || {})
+          .map(([name, count]) => `${name}: ${count}`)
+          .join(", ");
+        const hosts = Object.entries(stats.top_hosts || {})
+          .map(([name, count]) => `${name}: ${count}`)
+          .join(", ");
+        return `
+          <p><strong>Total events:</strong> ${stats.total_events}</p>
+          <p><strong>Unique events:</strong> ${stats.unique_events ?? "—"}</p>
+          <p><strong>By severity:</strong> ${severity || "—"}</p>
+          <p><strong>Top hosts:</strong> ${hosts || "—"}</p>
+        `;
+      };
+
+      const renderHighlights = (highlights = []) => {
+        if (!highlights.length) {
+          return "<p>No highlight samples captured.</p>";
+        }
+        return `
+          <h4>Highlights</h4>
+          <ul>
+            ${highlights
+              .slice(0, 10)
+              .map(
+                (h) => `
+                <li>
+                  <strong>[${h.severity}] ${h.host}/${h.app}</strong>
+                  (${h.occurrences ?? 1}×) — ${h.message}
+                </li>`
+              )
+              .join("")}
+          </ul>
+        `;
+      };
+
+      const buildCard = (item, kind) => {
+        const card = template.content.firstElementChild.cloneNode(true);
+        const windowEl = card.querySelector(".window");
+        const metaEl = card.querySelector(".meta");
+        const summaryEl = card.querySelector(".summary");
+        const statsEl = card.querySelector(".stats");
+        const highlightsEl = card.querySelector(".highlights");
+        const anomaliesEl = card.querySelector(".anomalies");
+
+        if (kind === "hourly") {
+          windowEl.textContent = formatDateRange(
+            item.window_start,
+            item.window_end
+          );
+          metaEl.textContent = `Total ${item?.stats?.total_events ?? 0} events`;
+        } else {
+          windowEl.textContent = formatDateRange(
+            item.day_start,
+            item.day_end
+          );
+          metaEl.textContent = `Total ${item?.stats?.total_events ?? 0} events`;
+        }
+
+        summaryEl.textContent = item.summary || "No summary available.";
+        statsEl.innerHTML = renderStats(item.stats);
+        highlightsEl.innerHTML = renderHighlights(item.highlights);
+        anomaliesEl.textContent =
+          (item.anomalies || "").trim() || "No anomalies reported.";
+
+        return card;
+      };
+
+      const loadSummaries = async (kind) => {
+        const limit =
+          kind === "hourly"
+            ? parseInt(hourlyLimit.value, 10)
+            : parseInt(dailyLimit.value, 10);
+        const response = await fetch(`/summaries/${kind}?limit=${limit}`);
+        if (!response.ok) {
+          throw new Error(`Failed to load ${kind} summaries`);
+        }
+        const data = await response.json();
+        const container = kind === "hourly" ? hourlyContainer : dailyContainer;
+        container.innerHTML = "";
+        if (!data.items || !data.items.length) {
+          container.innerHTML = '<p class="empty">No summaries yet.</p>';
+          return;
+        }
+        for (const item of data.items) {
+          container.appendChild(buildCard(item, kind));
+        }
+      };
+
+      hourlyRefresh.addEventListener("click", () =>
+        loadSummaries("hourly").catch(console.error)
+      );
+      dailyRefresh.addEventListener("click", () =>
+        loadSummaries("daily").catch(console.error)
+      );
+      hourlyLimit.addEventListener("change", () =>
+        loadSummaries("hourly").catch(console.error)
+      );
+      dailyLimit.addEventListener("change", () =>
+        loadSummaries("daily").catch(console.error)
+      );
+
+      const bootstrap = async () => {
+        try {
+          await Promise.all([
+            loadSummaries("hourly"),
+            loadSummaries("daily"),
+          ]);
+        } catch (err) {
+          console.error(err);
+          const errorBox = document.createElement("div");
+          errorBox.className = "error";
+          errorBox.textContent =
+            "Failed to load summaries. Check API status and try again.";
+          document.body.prepend(errorBox);
+        }
+      };
+
+      bootstrap();
+    </script>
+  </body>
+</html>
+
