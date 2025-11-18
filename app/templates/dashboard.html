@@ -49,6 +49,25 @@
         <div id="hourly-list" class="card-grid"></div>
       </section>
 
+      <section class="error-monitor">
+        <div class="section-header">
+          <h2>Error Monitor</h2>
+          <div class="controls">
+            <label>
+              Show last
+              <select id="error-limit">
+                <option value="6">6</option>
+                <option value="10" selected>10</option>
+                <option value="16">16</option>
+              </select>
+              windows
+            </label>
+            <button id="error-refresh">Refresh</button>
+          </div>
+        </div>
+        <div id="error-feed" class="card-grid tight"></div>
+      </section>
+
       <section>
         <div class="section-header">
           <h2>Daily Summaries</h2>
@@ -99,6 +118,7 @@
       const latestSlot = document.getElementById("latest-hourly-card");
       const hourlyList = document.getElementById("hourly-list");
       const dailyContainer = document.getElementById("daily-container");
+      const errorFeed = document.getElementById("error-feed");
       const hourlyHistory = document.getElementById("hourly-history");
       const hourlyRefresh = document.getElementById("hourly-refresh");
       const latestRefresh = document.getElementById("latest-refresh");
@@ -107,6 +127,8 @@
       const hourlyPageIndicator = document.getElementById("hourly-page-indicator");
       const dailyLimit = document.getElementById("daily-limit");
       const dailyRefresh = document.getElementById("daily-refresh");
+      const errorLimit = document.getElementById("error-limit");
+      const errorRefresh = document.getElementById("error-refresh");
       const template = document.getElementById("summary-card-template");
 
       const HOURLY_PAGE_SIZE = 6;
@@ -371,9 +393,77 @@
         loadDailyData().catch(console.error)
       );
 
+      const buildErrorCard = (item) => {
+        const card = document.createElement("article");
+        card.className = "card error-card";
+        const windowLabel = formatDateRange(item.window_start, item.window_end);
+        const severityPills = (item.severity_breakdown || [])
+          .map(
+            (entry) =>
+              `<span class="pill severity-${entry.severity}">${entry.severity}: ${entry.count}</span>`
+          )
+          .join("");
+        const topHosts = (item.top_hosts || [])
+          .map((host) => `<span class="chip">${host.host}×${host.count}</span>`)
+          .join("");
+        const highlights = (item.highlights || [])
+          .map(
+            (h) => `
+              <li>
+                <strong>[${h.severity}] ${h.host}/${h.app}</strong>
+                (${h.occurrences ?? 1}×) — ${h.message}
+              </li>
+            `
+          )
+          .join("");
+        card.innerHTML = `
+          <header>
+            <h3>${windowLabel}</h3>
+            <span class="meta">${item.total_errors} critical events</span>
+          </header>
+          <div class="error-meta">
+            <div>
+              <h4>Severity mix</h4>
+              <div class="pill-row">
+                ${severityPills || "<span class='pill'>No data</span>"}
+              </div>
+            </div>
+            <div>
+              <h4>Top hosts</h4>
+              <div class="pill-row">
+                ${topHosts || "<span class='chip'>None</span>"}
+              </div>
+            </div>
+          </div>
+          <div class="error-highlights">
+            <h4>Samples</h4>
+            <ul>${highlights || "<li>No error highlights captured.</li>"}</ul>
+          </div>
+        `;
+        return card;
+      };
+
+      const loadErrorInsights = async () => {
+        const limit = parseInt(errorLimit.value, 10);
+        const response = await fetch(`/insights/errors?limit=${limit}`);
+        if (!response.ok) {
+          throw new Error("Failed to load error insights");
+        }
+        const data = await response.json();
+        errorFeed.innerHTML = "";
+        if (!data.items || !data.items.length) {
+          errorFeed.innerHTML =
+            '<p class="empty">No critical errors detected recently.</p>';
+          return;
+        }
+        for (const item of data.items) {
+          errorFeed.appendChild(buildErrorCard(item));
+        }
+      };
+
       const bootstrap = async () => {
         try {
-          await Promise.all([loadHourlyData(), loadDailyData()]);
+          await Promise.all([loadHourlyData(), loadDailyData(), loadErrorInsights()]);
         } catch (err) {
           console.error(err);
           const errorBox = document.createElement("div");
@@ -383,6 +473,13 @@
           document.body.prepend(errorBox);
         }
       };
+
+      errorRefresh.addEventListener("click", () =>
+        loadErrorInsights().catch(console.error)
+      );
+      errorLimit.addEventListener("change", () =>
+        loadErrorInsights().catch(console.error)
+      );
 
       bootstrap();
     </script>

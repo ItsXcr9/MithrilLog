@@ -95,6 +95,10 @@ button:disabled {
   gap: 16px;
 }
 
+.card-grid.tight {
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+}
+
 .card {
   background: rgba(15, 23, 42, 0.7);
   border: 1px solid rgba(148, 163, 184, 0.15);
@@ -105,6 +109,63 @@ button:disabled {
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+.error-card h4 {
+  margin: 0 0 6px 0;
+  font-size: 0.9rem;
+  color: #cbd5f5;
+}
+
+.error-meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.error-highlights ul {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pill-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.pill {
+  border-radius: 999px;
+  padding: 2px 12px;
+  font-size: 0.78rem;
+  background: rgba(148, 163, 184, 0.16);
+  border: 1px solid rgba(148, 163, 184, 0.3);
+}
+
+.pill.severity-emerg,
+.pill.severity-alert {
+  background: rgba(248, 113, 113, 0.2);
+  border-color: rgba(248, 113, 113, 0.5);
+  color: #fecaca;
+}
+
+.pill.severity-crit,
+.pill.severity-err {
+  background: rgba(251, 191, 36, 0.2);
+  border-color: rgba(251, 191, 36, 0.4);
+  color: #fde68a;
+}
+
+.chip {
+  border-radius: 999px;
+  padding: 2px 10px;
+  font-size: 0.78rem;
+  background: rgba(56, 189, 248, 0.12);
+  color: #bae6fd;
+  border: 1px solid rgba(56, 189, 248, 0.35);
 }
 
 .card header {
@@ -232,15 +293,6 @@ details summary:hover {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-}
-
-.chip {
-  border-radius: 999px;
-  padding: 2px 10px;
-  font-size: 0.78rem;
-  background: rgba(56, 189, 248, 0.12);
-  color: #bae6fd;
-  border: 1px solid rgba(56, 189, 248, 0.35);
 }
 
 pre {
