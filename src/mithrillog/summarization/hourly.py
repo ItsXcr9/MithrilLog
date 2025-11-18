@@ -125,6 +125,7 @@ class HourlySummarizer:
             "error": 0, "err": 0, "warning": 1, "warn": 1, "crit": 2, "critical": 2,
             "alert": 3, "emerg": 4, "emergency": 4, "notice": 5, "info": 6, "debug": 7
         }
+        # Note: "err" is already in the map above, but ensure it's prioritized
         
         def sort_key(item: Dict[str, Any]) -> tuple:
             severity = item.get("severity", "info").lower()
