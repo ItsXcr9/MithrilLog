@@ -17,6 +17,7 @@ services:
       - "5614:5614"
     environment:
       - PYTHONUNBUFFERED=1
+      - TZ=Asia/Tehran
     restart: unless-stopped
 
   api:
@@ -34,6 +35,7 @@ services:
       - /etc/timezone:/etc/timezone:ro
     environment:
       - PYTHONUNBUFFERED=1
+      - TZ=Asia/Tehran
     depends_on:
       - orchestrator
     restart: unless-stopped

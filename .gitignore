@@ -1,0 +1,35 @@
+# macOS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Data and models (keep structure but ignore large files)
+data/buckets/**/*.ndjson
+data/buckets/**/*.meta.json
+data/reports/**/*.json
+models/*.gguf
+models/*.bin
+
+# Logs
+*.log
+
