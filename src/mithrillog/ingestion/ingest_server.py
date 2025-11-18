@@ -4,6 +4,7 @@ import asyncio
 import contextlib
 import hashlib
 import json
+import re
 from asyncio import AbstractEventLoop
 from dataclasses import dataclass
 from datetime import datetime
@@ -28,13 +29,84 @@ class LogEvent(BaseModel):
     raw: str
     transport: str
 
+    def normalize_message(self) -> str:
+        """Normalize message to extract pattern, removing variable fields like timestamps and numbers."""
+        msg = self.message
+        
+        # Try to parse as JSON (MongoDB logs, structured logs)
+        if msg.strip().startswith("{"):
+            try:
+                data = json.loads(msg)
+                # Extract component and message type
+                component = data.get("c", "")
+                msg_text = ""
+                
+                # Handle nested MongoDB format: attr.message.msg
+                if "attr" in data and isinstance(data["attr"], dict):
+                    attr = data["attr"]
+                    if "message" in attr and isinstance(attr["message"], dict):
+                        msg_data = attr["message"]
+                        if "msg" in msg_data:
+                            msg_text = str(msg_data["msg"])
+                # Direct msg field
+                elif "msg" in data:
+                    msg_val = data["msg"]
+                    if isinstance(msg_val, str):
+                        msg_text = msg_val
+                    elif isinstance(msg_val, dict) and "msg" in msg_val:
+                        msg_text = str(msg_val["msg"])
+                
+                # Normalize the message text: remove numbers, timestamps, IDs
+                # First, extract the core message pattern before normalization
+                # For MongoDB checkpoint: "saving checkpoint snapshot min: N, snapshot max: N..."
+                # We want: "saving checkpoint snapshot min: N, snapshot max: N snapshot count: N..."
+                # Replace all numbers with N (but keep the structure)
+                msg_text = re.sub(r'\b\d+\b', 'N', msg_text)
+                # Remove timestamp tuples like "(0, 0)"
+                msg_text = re.sub(r'\(N, N\)', '', msg_text)
+                # Remove specific timestamp fields
+                msg_text = re.sub(r'ts_sec:N|ts_usec:N', '', msg_text)
+                msg_text = re.sub(r'oldest timestamp:\s*\(N, N\)', 'oldest timestamp: (N, N)', msg_text)
+                msg_text = re.sub(r'meta checkpoint timestamp:\s*\(N, N\)', 'meta checkpoint timestamp: (N, N)', msg_text)
+                # Remove thread IDs and session names
+                msg_text = re.sub(r'0x[0-9a-fA-F]+', '0xHEX', msg_text)
+                msg_text = re.sub(r'thread:"[^"]*"', '', msg_text)
+                msg_text = re.sub(r'session_name:"[^"]*"', '', msg_text)
+                # Remove extra colons and commas
+                msg_text = re.sub(r',\s*,', ',', msg_text)  # double commas
+                msg_text = re.sub(r'\s+', ' ', msg_text)  # multiple spaces
+                
+                # Clean up extra spaces
+                msg_text = ' '.join(msg_text.split())
+                
+                if component and msg_text:
+                    return f"{component}:{msg_text}"
+                elif component:
+                    return component
+                elif msg_text:
+                    return msg_text
+            except (json.JSONDecodeError, KeyError, TypeError):
+                pass
+        
+        # For non-JSON messages, normalize by removing numbers and timestamps
+        normalized = msg
+        # Replace numbers with N
+        normalized = re.sub(r'\d+', 'N', normalized)
+        # Remove common timestamp patterns
+        normalized = re.sub(r'\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}[.\d]*[+-]\d{2}:\d{2}', 'TIMESTAMP', normalized)
+        normalized = re.sub(r'\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}[.\d]*', 'TIMESTAMP', normalized)
+        # Clean up extra spaces
+        normalized = ' '.join(normalized.split())
+        return normalized
+
     def dedupe_key(self) -> bytes:
+        normalized_msg = self.normalize_message()
         payload = {
             "host": self.host,
             "app": self.app,
             "severity": self.severity,
             "facility": self.facility,
-            "message": self.message,
+            "message": normalized_msg,
         }
         return json.dumps(payload, sort_keys=True).encode("utf-8")
 
