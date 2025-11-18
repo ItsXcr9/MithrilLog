@@ -24,10 +24,20 @@ let focusedKind = "hourly";
 
 // Utility Functions
 const formatDateRange = (start, end) => {
-  const startDate = new Date(start);
-  const endDate = new Date(end);
-  const options = { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' };
-  return `${startDate.toLocaleString('en-US', options)} → ${endDate.toLocaleString('en-US', options)}`;
+  try {
+    const startDate = new Date(start);
+    const endDate = new Date(end);
+    const options = { 
+      month: 'short', 
+      day: 'numeric', 
+      hour: '2-digit', 
+      minute: '2-digit',
+      timeZone: 'Asia/Tehran'
+    };
+    return `${startDate.toLocaleString('en-US', options)} → ${endDate.toLocaleString('en-US', options)}`;
+  } catch (e) {
+    return `${start} → ${end}`;
+  }
 };
 
 const renderStats = (stats) => {
@@ -107,7 +117,15 @@ const buildCard = (item, kind, options = {}) => {
   anomaliesEl.textContent = (item.anomalies || "").trim() || "No anomalies reported.";
 
   if (options.selectable) {
-    card.addEventListener("click", options.onSelect);
+    card.classList.add("selectable-card");
+    card.style.cursor = "pointer";
+    card.addEventListener("click", (e) => {
+      // Don't trigger if clicking on details toggle
+      if (e.target.closest("details")) {
+        return;
+      }
+      options.onSelect();
+    });
   }
 
   return card;
@@ -265,7 +283,19 @@ const loadDailyData = async () => {
 
 const buildErrorCard = (item) => {
   const card = document.createElement("article");
-  card.className = "data-card error-card";
+  card.className = "card error-card";
+  card.style.cursor = "pointer";
+  card.addEventListener("click", () => {
+    // Find the corresponding hourly summary and focus on it
+    const matchingHourly = hourlyData.find(h => 
+      h.window_start === item.window_start && h.window_end === item.window_end
+    );
+    if (matchingHourly) {
+      setFocus(matchingHourly, "hourly");
+      // Scroll to top
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  });
   
   const windowLabel = formatDateRange(item.window_start, item.window_end);
   const severityPills = (item.severity_breakdown || [])
@@ -372,8 +402,18 @@ const bootstrap = async () => {
     const errorBox = document.createElement("div");
     errorBox.className = "error";
     errorBox.style.margin = "2rem";
+    errorBox.style.padding = "1rem";
+    errorBox.style.background = "var(--error-bg)";
+    errorBox.style.border = "1px solid var(--error-border)";
+    errorBox.style.borderRadius = "var(--radius-md)";
+    errorBox.style.color = "var(--error-text)";
     errorBox.textContent = "Failed to load dashboard data. Please check API connectivity and try again.";
-    document.querySelector(".main-content").prepend(errorBox);
+    const main = document.querySelector("main");
+    if (main) {
+      main.prepend(errorBox);
+    } else {
+      document.body.prepend(errorBox);
+    }
   }
 };
 

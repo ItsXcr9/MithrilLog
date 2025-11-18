@@ -31,6 +31,8 @@ services:
       - ./configs:/app/configs
       - ./prompts:/app/prompts
       - ./models:/app/models
+      - ./app/static:/app/app/static
+      - ./app/templates:/app/app/templates
       - /etc/localtime:/etc/localtime:ro
       - /etc/timezone:/etc/timezone:ro
     environment:
