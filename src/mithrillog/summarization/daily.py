@@ -10,6 +10,7 @@ from typing import Any, Dict, List
 from ..config import Settings
 from ..llm import LLMClient
 from ..storage import JournalWriter
+from ..utils.time import get_timezone
 from .prompts import load_prompt_template
 
 logger = logging.getLogger("mithrillog.summarization.daily")
@@ -22,13 +23,16 @@ class DailySummarizer:
         self.llm = llm
         self.hourly_dir = Path(settings.summary.report_dir) / "hourly"
         self.report_dir = Path(settings.summary.report_dir) / "daily"
+        self.bucket_timezone = get_timezone(settings.timezone)
+        self._needs_utc_fallback = self.bucket_timezone.key not in {"UTC", "Etc/UTC"}
         self.report_dir.mkdir(parents=True, exist_ok=True)
         self.prompt = load_prompt_template(Path(settings.prompts.daily))
 
     def summarize_day(self, target: datetime) -> Dict[str, Any]:
         day_start = target.replace(hour=0, minute=0, second=0, microsecond=0)
         if day_start.tzinfo is None:
-            day_start = day_start.replace(tzinfo=timezone.utc)
+            day_start = day_start.replace(tzinfo=self.bucket_timezone)
+        day_start = day_start.astimezone(self.bucket_timezone)
         day_end = day_start + timedelta(days=1)
 
         # Check if summary already exists to prevent re-summarization
@@ -48,6 +52,12 @@ class DailySummarizer:
         for hour in range(24):
             hour_start = day_start + timedelta(hours=hour)
             report_path = self.hourly_dir / f"{hour_start:%Y/%m/%d/%H}.json"
+            if not report_path.exists() and self._needs_utc_fallback:
+                legacy_path = self.hourly_dir / f"{hour_start.astimezone(timezone.utc):%Y/%m/%d/%H}.json"
+                if legacy_path.exists():
+                    report_path = legacy_path
+                else:
+                    continue
             if not report_path.exists():
                 continue
             with report_path.open("r", encoding="utf-8") as handle:

@@ -10,7 +10,7 @@ from typing import Any, Dict, List
 from ..config import Settings
 from ..llm import LLMClient
 from ..storage import JournalWriter
-from ..utils.time import minute_bucket_path
+from ..utils.time import get_timezone, minute_bucket_path
 from .prompts import load_prompt_template
 
 logger = logging.getLogger("mithrillog.summarization.hourly")
@@ -22,6 +22,8 @@ class HourlySummarizer:
         self.journal = journal
         self.llm = llm
         self.bucket_dir = Path(settings.ingest.bucket_dir)
+        self.bucket_timezone = get_timezone(settings.timezone)
+        self._needs_utc_fallback = self.bucket_timezone.key not in {"UTC", "Etc/UTC"}
         self.report_dir = Path(settings.summary.report_dir) / "hourly"
         self.report_dir.mkdir(parents=True, exist_ok=True)
         self.prompt = load_prompt_template(Path(settings.prompts.hourly))
@@ -30,7 +32,8 @@ class HourlySummarizer:
     def summarize_hour(self, target: datetime) -> Dict[str, Any]:
         start = target.replace(minute=0, second=0, microsecond=0)
         if start.tzinfo is None:
-            start = start.replace(tzinfo=timezone.utc)
+            start = start.replace(tzinfo=self.bucket_timezone)
+        start = start.astimezone(self.bucket_timezone)
         end = start + timedelta(hours=1)
 
         # Check if summary already exists to prevent re-summarization
@@ -51,8 +54,16 @@ class HourlySummarizer:
         for minute in range(60):
             bucket_time = start + timedelta(minutes=minute)
             bucket_meta_path = Path(
-                minute_bucket_path(str(self.bucket_dir), bucket_time)
+                minute_bucket_path(str(self.bucket_dir), bucket_time, tz=self.bucket_timezone)
             ).with_suffix(".meta.json")
+            if not bucket_meta_path.exists() and self._needs_utc_fallback:
+                legacy_path = Path(
+                    minute_bucket_path(str(self.bucket_dir), bucket_time, tz=timezone.utc)
+                ).with_suffix(".meta.json")
+                if legacy_path.exists():
+                    bucket_meta_path = legacy_path
+                else:
+                    continue
             if not bucket_meta_path.exists():
                 continue
             with bucket_meta_path.open("r", encoding="utf-8") as handle:

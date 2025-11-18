@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable
 
-from .utils.time import minute_bucket_path
+from .utils.time import get_timezone, minute_bucket_path
 
 
 @dataclass
@@ -16,13 +16,14 @@ class BucketRecord:
 
 
 class JournalWriter:
-    def __init__(self, base_dir: Path) -> None:
+    def __init__(self, base_dir: Path, timezone_name: str = "UTC") -> None:
         self.base_dir = base_dir
         self.base_dir.mkdir(parents=True, exist_ok=True)
+        self.bucket_timezone = get_timezone(timezone_name)
 
     def append(self, event: dict[str, Any]) -> Path:
         timestamp = event["timestamp"]
-        bucket = minute_bucket_path(str(self.base_dir), timestamp)
+        bucket = minute_bucket_path(str(self.base_dir), timestamp, tz=self.bucket_timezone)
         path = Path(bucket)
         path.parent.mkdir(parents=True, exist_ok=True)
         line = json.dumps(event, separators=(",", ":"), default=str)

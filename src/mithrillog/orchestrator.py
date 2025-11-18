@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -12,7 +12,7 @@ from .ingestion import BloomDeduper, IngestServer, ReservoirSampler
 from .llm import LLMClient
 from .storage import JournalWriter
 from .summarization import DailySummarizer, HourlySummarizer
-from .utils.time import utc_now
+from .utils.time import get_timezone, utc_now
 
 logger = logging.getLogger("mithrillog.orchestrator")
 
@@ -20,7 +20,10 @@ logger = logging.getLogger("mithrillog.orchestrator")
 class Orchestrator:
     def __init__(self, settings: Optional[Settings] = None) -> None:
         self.settings = settings or default_settings
-        self.journal = JournalWriter(Path(self.settings.ingest.bucket_dir))
+        self.local_tz = get_timezone(self.settings.timezone)
+        self.journal = JournalWriter(
+            Path(self.settings.ingest.bucket_dir), timezone_name=self.settings.timezone
+        )
         self.llm_client = LLMClient(self.settings.llm)
         self.ingest_server = IngestServer(
             config=self.settings.ingest,
@@ -59,12 +62,14 @@ class Orchestrator:
     async def _hourly_scheduler(self) -> None:
         minute = self.settings.summary.hourly_at_minute
         while True:
-            now = utc_now()
-            run_at = now.replace(minute=minute, second=0, microsecond=0)
-            if run_at <= now:
-                run_at += timedelta(hours=1)
-            await asyncio.sleep((run_at - now).total_seconds())
-            await self._run_hourly(run_at - timedelta(hours=1))
+            now_utc = utc_now()
+            now_local = now_utc.astimezone(self.local_tz)
+            run_at_local = now_local.replace(minute=minute, second=0, microsecond=0)
+            if run_at_local <= now_local:
+                run_at_local += timedelta(hours=1)
+            run_at_utc = run_at_local.astimezone(timezone.utc)
+            await asyncio.sleep(max(0, (run_at_utc - now_utc).total_seconds()))
+            await self._run_hourly(run_at_local - timedelta(hours=1))
 
     async def _run_hourly(self, target: datetime) -> None:
         logger.info("Running hourly summary for %s", target)
@@ -77,12 +82,14 @@ class Orchestrator:
         minute = self.settings.summary.daily_at_minute
         hour = self.settings.summary.daily_at_hour
         while True:
-            now = utc_now()
-            run_at = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
-            if run_at <= now:
-                run_at += timedelta(days=1)
-            await asyncio.sleep((run_at - now).total_seconds())
-            await self._run_daily(run_at - timedelta(days=1))
+            now_utc = utc_now()
+            now_local = now_utc.astimezone(self.local_tz)
+            run_at_local = now_local.replace(hour=hour, minute=minute, second=0, microsecond=0)
+            if run_at_local <= now_local:
+                run_at_local += timedelta(days=1)
+            run_at_utc = run_at_local.astimezone(timezone.utc)
+            await asyncio.sleep(max(0, (run_at_utc - now_utc).total_seconds()))
+            await self._run_daily(run_at_local - timedelta(days=1))
 
     async def _run_daily(self, target: datetime) -> None:
         logger.info("Running daily summary for %s", target)
@@ -94,13 +101,13 @@ class Orchestrator:
     async def _catchup_summaries(self) -> None:
         """Catch up on missed hourly and daily summaries."""
         logger.info("Catching up on missed summaries...")
-        now = utc_now()
+        now_local = utc_now().astimezone(self.local_tz)
         
         # Catch up hourly summaries (last 24 hours)
         for hours_back in range(24, 0, -1):
-            target = now - timedelta(hours=hours_back)
+            target = now_local - timedelta(hours=hours_back)
             target = target.replace(minute=self.settings.summary.hourly_at_minute, second=0, microsecond=0)
-            if target < now:
+            if target < now_local:
                 try:
                     await self._run_hourly(target)
                 except Exception:  # noqa: BLE001
@@ -109,14 +116,14 @@ class Orchestrator:
         
         # Catch up daily summaries (last 7 days)
         for days_back in range(7, 0, -1):
-            target = now - timedelta(days=days_back)
+            target = now_local - timedelta(days=days_back)
             target = target.replace(
                 hour=self.settings.summary.daily_at_hour,
                 minute=self.settings.summary.daily_at_minute,
                 second=0,
                 microsecond=0
             )
-            if target < now:
+            if target < now_local:
                 try:
                     await self._run_daily(target)
                 except Exception:  # noqa: BLE001

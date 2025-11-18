@@ -53,6 +53,7 @@ class Settings(BaseModel):
     summary: SummaryConfig = SummaryConfig()
     storage: StorageConfig = StorageConfig()
     prompts: PromptsConfig = PromptsConfig()
+    timezone: str = "UTC"
 
     @classmethod
     def load(cls, path: Path | str) -> "Settings":
