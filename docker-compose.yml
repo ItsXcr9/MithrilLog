@@ -10,6 +10,8 @@ services:
       - ./configs:/app/configs
       - ./prompts:/app/prompts
       - ./models:/app/models
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
     ports:
       - "5514:5514/udp"
       - "5614:5614"
@@ -28,6 +30,8 @@ services:
       - ./configs:/app/configs
       - ./prompts:/app/prompts
       - ./models:/app/models
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
     environment:
       - PYTHONUNBUFFERED=1
     depends_on:
