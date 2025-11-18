@@ -21,10 +21,16 @@ def floor_to_minute(dt: datetime) -> datetime:
     return dt.replace(second=0, microsecond=0)
 
 
-def _ensure_timezone(dt: datetime, tz: ZoneInfo) -> datetime:
+def ensure_timezone(dt: datetime, tz: ZoneInfo) -> datetime:
+    """Ensure datetime is in the specified timezone, converting from UTC if naive."""
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=timezone.utc)
     return dt.astimezone(tz)
+
+
+def _ensure_timezone(dt: datetime, tz: ZoneInfo) -> datetime:
+    """Internal alias for backward compatibility."""
+    return ensure_timezone(dt, tz)
 
 
 def minute_bucket_path(base_dir: str | bytes, dt: datetime, tz: ZoneInfo | None = None) -> str:

@@ -16,7 +16,7 @@ from pydantic import BaseModel
 
 from ..config import IngestConfig
 from ..storage import JournalWriter
-from ..utils.time import floor_to_minute, utc_now
+from ..utils.time import ensure_timezone, floor_to_minute, utc_now
 from .dedupe import BloomDeduper, ReservoirSampler
 
 
@@ -235,7 +235,11 @@ class IngestServer:
         self._udp_transport: Optional[asyncio.DatagramTransport] = None
         self._tcp_server: Optional[asyncio.AbstractServer] = None
         self._consumer_task: Optional[asyncio.Task[None]] = None
-        self._current_bucket = floor_to_minute(utc_now())
+        # Initialize _current_bucket in the journal's bucket timezone
+        now_utc = utc_now()
+        bucket_tz = self.journal.bucket_timezone
+        now_bucket_tz = ensure_timezone(now_utc, bucket_tz)
+        self._current_bucket = floor_to_minute(now_bucket_tz)
         self._last_bucket_path: Optional[str] = None
         self._bucket_stats = self._new_bucket_stats()
 
@@ -330,7 +334,10 @@ class IngestServer:
             await self._handle_event(event)
 
     async def _handle_event(self, event: LogEvent) -> None:
-        bucket_time = floor_to_minute(event.timestamp)
+        # Convert event timestamp to bucket timezone before comparison
+        bucket_tz = self.journal.bucket_timezone
+        event_tz = ensure_timezone(event.timestamp, bucket_tz)
+        bucket_time = floor_to_minute(event_tz)
         if bucket_time > self._current_bucket:
             await self._flush_bucket()
             self.deduper.reset()

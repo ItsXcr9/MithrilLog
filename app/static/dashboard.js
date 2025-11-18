@@ -43,14 +43,17 @@ const formatDateRange = (start, end) => {
 const renderStats = (stats) => {
   if (!stats || stats.total_events === undefined) return "<p>No statistics available</p>";
   
-  const severity = Object.entries(stats.by_severity || {})
-    .map(([name, count]) => `<strong>${name}:</strong> ${count}`)
-    .join(" • ");
+  // Calculate error count
+  const errorSeverities = ['err', 'error', 'crit', 'critical', 'alert', 'emerg', 'emergency'];
+  const errorCount = Object.entries(stats.by_severity || {})
+    .filter(([sev]) => errorSeverities.includes(sev.toLowerCase()))
+    .reduce((sum, [, count]) => sum + count, 0);
+  
   const hosts = Object.entries(stats.top_hosts || {})
     .slice(0, 3)
     .map(([name, count]) => `<strong>${name}:</strong> ${count}`)
     .join(" • ");
-  const apps = Object.entries(stats.top_apps || {})
+  const containers = Object.entries(stats.top_apps || {})
     .slice(0, 3)
     .map(([name, count]) => `<strong>${name}:</strong> ${count}`)
     .join(" • ");
@@ -58,9 +61,9 @@ const renderStats = (stats) => {
   return `
     <p><strong>Total Events:</strong> ${stats.total_events.toLocaleString()}</p>
     <p><strong>Unique Events:</strong> ${stats.unique_events?.toLocaleString() ?? "—"}</p>
-    <p><strong>Severity Distribution:</strong> ${severity || "—"}</p>
+    <p><strong>Error Count:</strong> ${errorCount.toLocaleString()}</p>
     <p><strong>Top Hosts:</strong> ${hosts || "—"}</p>
-    <p><strong>Top Applications:</strong> ${apps || "—"}</p>
+    <p><strong>Container Tags:</strong> ${containers || "—"}</p>
   `;
 };
 
@@ -147,9 +150,24 @@ const renderFocus = () => {
     ? formatDateRange(item.window_start, item.window_end)
     : formatDateRange(item.day_start, item.day_end);
   
-  const topSeverity = Object.entries(stats.by_severity || {})[0];
+  // Calculate total error count (err, crit, alert, emerg)
+  const errorSeverities = ['err', 'error', 'crit', 'critical', 'alert', 'emerg', 'emergency'];
+  const errorCount = Object.entries(stats.by_severity || {})
+    .filter(([sev]) => errorSeverities.includes(sev.toLowerCase()))
+    .reduce((sum, [, count]) => sum + count, 0);
+  
   const topHost = Object.entries(stats.top_hosts || {})[0];
   const topApp = Object.entries(stats.top_apps || {})[0];
+  
+  // Format container tag (if app looks like a container name)
+  const formatContainerTag = (appName) => {
+    if (!appName || appName === '-') return '—';
+    // If it looks like a container name (contains / or : or docker patterns)
+    if (appName.includes('/') || appName.includes(':') || appName.includes('docker') || appName.includes('container')) {
+      return appName;
+    }
+    return appName;
+  };
   
   const highlightHtml = (item.highlights || [])
     .slice(0, 4)
@@ -180,16 +198,16 @@ const renderFocus = () => {
         <strong>${stats.unique_events?.toLocaleString() ?? "—"}</strong>
       </div>
       <div>
-        <span>Top Severity</span>
-        <strong>${topSeverity ? `${topSeverity[0]}: ${topSeverity[1]}` : "—"}</strong>
+        <span>Error Count</span>
+        <strong>${errorCount.toLocaleString()}</strong>
       </div>
       <div>
         <span>Top Host</span>
         <strong>${topHost ? `${topHost[0]}: ${topHost[1]}` : "—"}</strong>
       </div>
       <div>
-        <span>Top Application</span>
-        <strong>${topApp ? `${topApp[0]}: ${topApp[1]}` : "—"}</strong>
+        <span>Container Tags</span>
+        <strong>${topApp ? `${formatContainerTag(topApp[0])}: ${topApp[1]}` : "—"}</strong>
       </div>
     </div>
     <p class="focus-summary">${item.summary || "No summary available."}</p>
