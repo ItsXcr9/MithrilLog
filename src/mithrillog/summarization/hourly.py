@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from collections import Counter
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -11,6 +12,8 @@ from ..llm import LLMClient
 from ..storage import JournalWriter
 from ..utils.time import minute_bucket_path
 from .prompts import load_prompt_template
+
+logger = logging.getLogger("mithrillog.summarization.hourly")
 
 
 class HourlySummarizer:
@@ -29,6 +32,13 @@ class HourlySummarizer:
         if start.tzinfo is None:
             start = start.replace(tzinfo=timezone.utc)
         end = start + timedelta(hours=1)
+
+        # Check if summary already exists to prevent re-summarization
+        report_path = self.report_dir / f"{start:%Y/%m/%d/%H}.json"
+        if report_path.exists():
+            logger.info("Hourly summary already exists for %s, skipping", start)
+            with report_path.open("r", encoding="utf-8") as handle:
+                return json.load(handle)
 
         severity_counter: Counter[str] = Counter()
         host_counter: Counter[str] = Counter()

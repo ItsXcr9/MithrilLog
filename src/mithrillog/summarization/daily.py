@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from collections import Counter
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -10,6 +11,8 @@ from ..config import Settings
 from ..llm import LLMClient
 from ..storage import JournalWriter
 from .prompts import load_prompt_template
+
+logger = logging.getLogger("mithrillog.summarization.daily")
 
 
 class DailySummarizer:
@@ -27,6 +30,13 @@ class DailySummarizer:
         if day_start.tzinfo is None:
             day_start = day_start.replace(tzinfo=timezone.utc)
         day_end = day_start + timedelta(days=1)
+
+        # Check if summary already exists to prevent re-summarization
+        report_path = self.report_dir / f"{day_start:%Y/%m/%d}.json"
+        if report_path.exists():
+            logger.info("Daily summary already exists for %s, skipping", day_start)
+            with report_path.open("r", encoding="utf-8") as handle:
+                return json.load(handle)
 
         stats_counter = Counter()
         severity_counter = Counter()
