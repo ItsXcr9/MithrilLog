@@ -39,6 +39,8 @@ class Orchestrator:
         logger.info("Starting orchestrator")
         self._stopped.clear()
         await self.ingest_server.start()
+        # Catch up on missed summaries (run in background, don't block startup)
+        self._tasks.append(asyncio.create_task(self._catchup_summaries()))
         self._tasks.append(asyncio.create_task(self._hourly_scheduler()))
         self._tasks.append(asyncio.create_task(self._daily_scheduler()))
         self._tasks.append(asyncio.create_task(self._watchdog()))
@@ -88,6 +90,40 @@ class Orchestrator:
             await asyncio.to_thread(self.daily_summarizer.summarize_day, target)
         except Exception:  # noqa: BLE001
             logger.exception("Daily summary failed for %s", target)
+
+    async def _catchup_summaries(self) -> None:
+        """Catch up on missed hourly and daily summaries."""
+        logger.info("Catching up on missed summaries...")
+        now = utc_now()
+        
+        # Catch up hourly summaries (last 24 hours)
+        for hours_back in range(24, 0, -1):
+            target = now - timedelta(hours=hours_back)
+            target = target.replace(minute=self.settings.summary.hourly_at_minute, second=0, microsecond=0)
+            if target < now:
+                try:
+                    await self._run_hourly(target)
+                except Exception:  # noqa: BLE001
+                    logger.exception("Catchup hourly summary failed for %s", target)
+                await asyncio.sleep(1)  # Small delay between summaries
+        
+        # Catch up daily summaries (last 7 days)
+        for days_back in range(7, 0, -1):
+            target = now - timedelta(days=days_back)
+            target = target.replace(
+                hour=self.settings.summary.daily_at_hour,
+                minute=self.settings.summary.daily_at_minute,
+                second=0,
+                microsecond=0
+            )
+            if target < now:
+                try:
+                    await self._run_daily(target)
+                except Exception:  # noqa: BLE001
+                    logger.exception("Catchup daily summary failed for %s", target)
+                await asyncio.sleep(1)  # Small delay between summaries
+        
+        logger.info("Catchup complete")
 
     async def _watchdog(self) -> None:
         while True:
