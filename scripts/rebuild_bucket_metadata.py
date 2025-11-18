@@ -96,6 +96,8 @@ def rebuild_meta(ndjson_path: Path, force: bool = False) -> bool:
         app_counts[app] += occ
         total_events += occ
         event["occurrences"] = occ
+        event["source_hosts"] = {host: occ}
+        event["source_apps"] = {app: occ}
         highlights.append(event)
 
     bucket_meta = {

@@ -6,6 +6,7 @@ import hashlib
 import json
 import re
 from asyncio import AbstractEventLoop
+from collections import Counter, defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -22,6 +23,25 @@ from .dedupe import BloomDeduper, ReservoirSampler
 ISO_TIMESTAMP_RE = re.compile(
     r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})"
 )
+UUID_RE = re.compile(
+    r"\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b"
+)
+IP_RE = re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b")
+HEX_RUN_RE = re.compile(r"\b[0-9a-fA-F]{16,}\b")
+QUOTED_STR_RE = re.compile(r'"[^"]{5,}"')
+MAC_RE = re.compile(r"\b[0-9A-Fa-f]{2}(?::[0-9A-Fa-f]{2}){5}\b")
+
+
+def _mask_variable_tokens(text: str) -> str:
+    text = UUID_RE.sub("UUID", text)
+    text = MAC_RE.sub("MAC", text)
+    text = IP_RE.sub("IP", text)
+    text = HEX_RUN_RE.sub("HEX", text)
+    text = QUOTED_STR_RE.sub('"STR"', text)
+    text = re.sub(r"\b0x[0-9a-fA-F]+\b", "0xHEX", text)
+    text = re.sub(r"\b\d+\b", "N", text)
+    text = re.sub(r"\s+", " ", text).strip()
+    return text
 
 
 class LogEvent(BaseModel):
@@ -83,6 +103,7 @@ class LogEvent(BaseModel):
                 
                 # Clean up extra spaces
                 msg_text = ' '.join(msg_text.split())
+                msg_text = _mask_variable_tokens(msg_text)
                 
                 if component and msg_text:
                     return f"{component}:{msg_text}"
@@ -102,18 +123,18 @@ class LogEvent(BaseModel):
         normalized = re.sub(r'\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}[.\d]*', 'TIMESTAMP', normalized)
         # Clean up extra spaces
         normalized = ' '.join(normalized.split())
-        return normalized
+        return _mask_variable_tokens(normalized)
 
-    def dedupe_key(self) -> bytes:
+    def _pattern_payload(self) -> dict:
         normalized_msg = self.normalize_message()
-        payload = {
-            "host": self.host,
-            "app": self.app,
+        return {
             "severity": self.severity,
             "facility": self.facility,
             "message": normalized_msg,
         }
-        return json.dumps(payload, sort_keys=True).encode("utf-8")
+
+    def dedupe_key(self) -> bytes:
+        return json.dumps(self._pattern_payload(), sort_keys=True).encode("utf-8")
 
     def sample_key(self) -> str:
         return f"{self.host}:{self.severity}:{self.app}"
@@ -216,6 +237,32 @@ class IngestServer:
         self._consumer_task: Optional[asyncio.Task[None]] = None
         self._current_bucket = floor_to_minute(utc_now())
         self._last_bucket_path: Optional[str] = None
+        self._bucket_stats = self._new_bucket_stats()
+
+    @staticmethod
+    def _new_bucket_stats():
+        return {
+            "severity": Counter(),
+            "hosts": Counter(),
+            "apps": Counter(),
+            "patterns": Counter(),
+            "pattern_hosts": defaultdict(Counter),
+            "pattern_apps": defaultdict(Counter),
+        }
+
+    def _reset_bucket_stats(self) -> None:
+        self._bucket_stats = self._new_bucket_stats()
+
+    def _update_bucket_stats(self, event: LogEvent, pattern: str) -> None:
+        stats = self._bucket_stats
+        host = event.host or "unknown"
+        app = event.app or "-"
+        stats["severity"][event.severity] += 1
+        stats["hosts"][host] += 1
+        stats["apps"][app] += 1
+        stats["patterns"][pattern] += 1
+        stats["pattern_hosts"][pattern][host] += 1
+        stats["pattern_apps"][pattern][app] += 1
 
     async def start(self) -> None:
         self.loop = self.loop or asyncio.get_running_loop()
@@ -289,7 +336,9 @@ class IngestServer:
             self.deduper.reset()
             self.sampler.reset()
             self._current_bucket = bucket_time
+            self._reset_bucket_stats()
         pattern = event.pattern_id()
+        self._update_bucket_stats(event, pattern)
         if self.deduper.seen(event.dedupe_key()):
             self.sampler.register_duplicate(pattern)
             return
@@ -303,10 +352,12 @@ class IngestServer:
 
     async def _flush_bucket(self) -> None:
         if not self._last_bucket_path:
+            self._reset_bucket_stats()
             return
         path = Path(self._last_bucket_path)
         if not path.exists():
             self._last_bucket_path = None
+            self._reset_bucket_stats()
             return
         totals = self.sampler.totals()
         events: list[dict] = []
@@ -318,25 +369,28 @@ class IngestServer:
                     events.append(json.loads(line))
         except json.JSONDecodeError:
             events = []
-        from collections import Counter
 
-        severity_counts: Counter[str] = Counter()
-        host_counts: Counter[str] = Counter()
-        app_counts: Counter[str] = Counter()
+        stats = self._bucket_stats
+        severity_counts: Counter[str] = stats["severity"]
+        host_counts: Counter[str] = stats["hosts"]
+        app_counts: Counter[str] = stats["apps"]
+        pattern_counts: Counter[str] = stats["patterns"]
         highlights: list[dict] = []
         for event in events:
             pattern = event.get("pattern_id")
-            occurrences = totals.get(pattern, 1)
+            occurrences = pattern_counts.get(pattern, totals.get(pattern, 1))
             event["occurrences"] = occurrences
-            severity = event.get("severity", "info")
-            severity_counts[severity] += occurrences
-            host_counts[event.get("host", "unknown")] += occurrences
-            app_counts[event.get("app", "-")] += occurrences
+            sources = stats["pattern_hosts"].get(pattern, Counter())
+            apps = stats["pattern_apps"].get(pattern, Counter())
+            event["source_hosts"] = dict(sources.most_common(5))
+            event["source_apps"] = dict(apps.most_common(5))
             highlights.append(event)
-        total_events = sum(totals.values()) or len(events)
+        total_events = (
+            sum(pattern_counts.values()) or sum(totals.values()) or len(events)
+        )
         bucket_meta = {
             "bucket": self._current_bucket.isoformat(),
-            "patterns": totals,
+            "patterns": dict(pattern_counts) or totals,
             "severity": dict(severity_counts),
             "hosts": dict(host_counts),
             "apps": dict(app_counts),
@@ -349,4 +403,5 @@ class IngestServer:
         meta_path = path.with_suffix(".meta.json")
         self.journal.write_metadata(meta_path, bucket_meta)
         self._last_bucket_path = None
+        self._reset_bucket_stats()
 

@@ -15,23 +15,38 @@
     </header>
 
     <main>
+      <section class="latest-hourly">
+        <div class="section-header">
+          <h2>Latest Hourly Summary</h2>
+          <div class="controls">
+            <button id="latest-refresh">Refresh</button>
+          </div>
+        </div>
+        <div id="latest-hourly-card" class="latest-card-slot"></div>
+      </section>
+
       <section>
         <div class="section-header">
-          <h2>Hourly Summaries</h2>
-          <div class="controls">
+          <h2>Hourly Timeline</h2>
+          <div class="controls stack">
             <label>
-              Show last
-              <select id="hourly-limit">
-                <option value="6">6</option>
-                <option value="12">12</option>
-                <option value="24">24</option>
+              History window
+              <select id="hourly-history">
+                <option value="6">6h</option>
+                <option value="12" selected>12h</option>
+                <option value="24">24h</option>
+                <option value="48">48h</option>
               </select>
-              hours
             </label>
+            <div class="pager">
+              <button id="hourly-prev">Prev</button>
+              <span id="hourly-page-indicator">Page 1/1</span>
+              <button id="hourly-next">Next</button>
+            </div>
             <button id="hourly-refresh">Refresh</button>
           </div>
         </div>
-        <div id="hourly-container" class="card-grid"></div>
+        <div id="hourly-list" class="card-grid"></div>
       </section>
 
       <section>
@@ -81,13 +96,22 @@
     </template>
 
     <script>
-      const hourlyContainer = document.getElementById("hourly-container");
+      const latestSlot = document.getElementById("latest-hourly-card");
+      const hourlyList = document.getElementById("hourly-list");
       const dailyContainer = document.getElementById("daily-container");
-      const hourlyLimit = document.getElementById("hourly-limit");
-      const dailyLimit = document.getElementById("daily-limit");
+      const hourlyHistory = document.getElementById("hourly-history");
       const hourlyRefresh = document.getElementById("hourly-refresh");
+      const latestRefresh = document.getElementById("latest-refresh");
+      const hourlyPrev = document.getElementById("hourly-prev");
+      const hourlyNext = document.getElementById("hourly-next");
+      const hourlyPageIndicator = document.getElementById("hourly-page-indicator");
+      const dailyLimit = document.getElementById("daily-limit");
       const dailyRefresh = document.getElementById("daily-refresh");
       const template = document.getElementById("summary-card-template");
+
+      const HOURLY_PAGE_SIZE = 6;
+      let hourlyData = [];
+      let hourlyPage = 0;
 
       const formatDateRange = (start, end) => {
         const startDate = new Date(start);
@@ -103,12 +127,28 @@
         const hosts = Object.entries(stats.top_hosts || {})
           .map(([name, count]) => `${name}: ${count}`)
           .join(", ");
+        const apps = Object.entries(stats.top_apps || {})
+          .map(([name, count]) => `${name}: ${count}`)
+          .join(", ");
         return `
           <p><strong>Total events:</strong> ${stats.total_events}</p>
           <p><strong>Unique events:</strong> ${stats.unique_events ?? "—"}</p>
           <p><strong>By severity:</strong> ${severity || "—"}</p>
           <p><strong>Top hosts:</strong> ${hosts || "—"}</p>
+          <p><strong>Top apps:</strong> ${apps || "—"}</p>
         `;
+      };
+
+      const renderHighlightSources = (highlight) => {
+        const sources = highlight.source_hosts || highlight.sources;
+        if (!sources || !Object.keys(sources).length) {
+          return "";
+        }
+        const chips = Object.entries(sources)
+          .slice(0, 3)
+          .map(([host, count]) => `<span class="chip">${host}×${count}</span>`)
+          .join("");
+        return `<div class="highlight-sources">${chips}</div>`;
       };
 
       const renderHighlights = (highlights = []) => {
@@ -125,6 +165,7 @@
                 <li>
                   <strong>[${h.severity}] ${h.host}/${h.app}</strong>
                   (${h.occurrences ?? 1}×) — ${h.message}
+                  ${renderHighlightSources(h)}
                 </li>`
               )
               .join("")}
@@ -132,7 +173,71 @@
         `;
       };
 
-      const buildCard = (item, kind) => {
+      const buildMinuteRollup = (rollup = []) => {
+        if (!rollup.length) return null;
+        const recent = rollup.slice(-5);
+        const node = document.createElement("div");
+        node.className = "mini-rollup";
+        node.innerHTML = `
+          <h4>Recent minutes</h4>
+          <div class="mini-rollup-grid">
+            ${recent
+              .map((entry) => {
+                const stamp = new Date(entry.minute);
+                const label = stamp.toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                });
+                return `
+                  <div>
+                    <span>${label}</span>
+                    <strong>${entry.total}</strong>
+                  </div>
+                `;
+              })
+              .join("")}
+          </div>
+        `;
+        return node;
+      };
+
+      const decorateLatestCard = (card, item) => {
+        card.classList.add("hero-card");
+        const summaryEl = card.querySelector(".summary");
+        const metrics = document.createElement("div");
+        metrics.className = "hero-metrics";
+        const stats = item.stats || {};
+        const topSeverity =
+          Object.entries(stats.by_severity || {})[0]?.join(": ") || "—";
+        const topHost =
+          Object.entries(stats.top_hosts || {})[0]?.join(": ") || "—";
+        metrics.innerHTML = `
+          <div>
+            <span>Total</span>
+            <strong>${stats.total_events ?? 0}</strong>
+          </div>
+          <div>
+            <span>Unique</span>
+            <strong>${stats.unique_events ?? "—"}</strong>
+          </div>
+          <div>
+            <span>Top severity</span>
+            <strong>${topSeverity}</strong>
+          </div>
+          <div>
+            <span>Top host</span>
+            <strong>${topHost}</strong>
+          </div>
+        `;
+        summaryEl.parentElement.insertBefore(metrics, summaryEl);
+        const rollup = buildMinuteRollup(item.minute_rollup || []);
+        if (rollup) {
+          const details = card.querySelector("details");
+          details.parentElement.insertBefore(rollup, details);
+        }
+      };
+
+      const buildCard = (item, kind, options = {}) => {
         const card = template.content.firstElementChild.cloneNode(true);
         const windowEl = card.querySelector(".window");
         const metaEl = card.querySelector(".meta");
@@ -146,14 +251,13 @@
             item.window_start,
             item.window_end
           );
-          metaEl.textContent = `Total ${item?.stats?.total_events ?? 0} events`;
         } else {
           windowEl.textContent = formatDateRange(
             item.day_start,
             item.day_end
           );
-          metaEl.textContent = `Total ${item?.stats?.total_events ?? 0} events`;
         }
+        metaEl.textContent = `Total ${item?.stats?.total_events ?? 0} events`;
 
         summaryEl.textContent = item.summary || "No summary available.";
         statsEl.innerHTML = renderStats(item.stats);
@@ -161,49 +265,115 @@
         anomaliesEl.textContent =
           (item.anomalies || "").trim() || "No anomalies reported.";
 
+        if (options.emphasize) {
+          decorateLatestCard(card, item);
+        }
+
         return card;
       };
 
-      const loadSummaries = async (kind) => {
-        const limit =
-          kind === "hourly"
-            ? parseInt(hourlyLimit.value, 10)
-            : parseInt(dailyLimit.value, 10);
-        const response = await fetch(`/summaries/${kind}?limit=${limit}`);
+      const renderLatestHourly = () => {
+        latestSlot.innerHTML = "";
+        if (!hourlyData.length) {
+          latestSlot.innerHTML = '<p class="empty">No summaries yet.</p>';
+          return;
+        }
+        latestSlot.appendChild(buildCard(hourlyData[0], "hourly", { emphasize: true }));
+      };
+
+      const renderHourlyList = () => {
+        const history = hourlyData.slice(1);
+        hourlyList.innerHTML = "";
+        if (!history.length) {
+          hourlyList.innerHTML =
+            '<p class="empty">No additional hourly summaries yet.</p>';
+          hourlyPageIndicator.textContent = "No history";
+          hourlyPrev.disabled = true;
+          hourlyNext.disabled = true;
+          return;
+        }
+        const totalPages = Math.max(
+          1,
+          Math.ceil(history.length / HOURLY_PAGE_SIZE)
+        );
+        hourlyPage = Math.min(hourlyPage, totalPages - 1);
+        const start = hourlyPage * HOURLY_PAGE_SIZE;
+        const pageItems = history.slice(start, start + HOURLY_PAGE_SIZE);
+        for (const item of pageItems) {
+          hourlyList.appendChild(buildCard(item, "hourly"));
+        }
+        hourlyPageIndicator.textContent = `Page ${hourlyPage + 1}/${totalPages}`;
+        hourlyPrev.disabled = hourlyPage === 0;
+        hourlyNext.disabled = hourlyPage >= totalPages - 1;
+      };
+
+      const loadHourlyData = async () => {
+        const limit = parseInt(hourlyHistory.value, 10);
+        const response = await fetch(`/summaries/hourly?limit=${limit}`);
         if (!response.ok) {
-          throw new Error(`Failed to load ${kind} summaries`);
+          throw new Error("Failed to load hourly summaries");
         }
         const data = await response.json();
-        const container = kind === "hourly" ? hourlyContainer : dailyContainer;
-        container.innerHTML = "";
+        hourlyData = data.items || [];
+        hourlyPage = 0;
+        renderLatestHourly();
+        renderHourlyList();
+      };
+
+      const loadDailyData = async () => {
+        const limit = parseInt(dailyLimit.value, 10);
+        const response = await fetch(`/summaries/daily?limit=${limit}`);
+        if (!response.ok) {
+          throw new Error("Failed to load daily summaries");
+        }
+        const data = await response.json();
+        dailyContainer.innerHTML = "";
         if (!data.items || !data.items.length) {
-          container.innerHTML = '<p class="empty">No summaries yet.</p>';
+          dailyContainer.innerHTML = '<p class="empty">No summaries yet.</p>';
           return;
         }
         for (const item of data.items) {
-          container.appendChild(buildCard(item, kind));
+          dailyContainer.appendChild(buildCard(item, "daily"));
         }
       };
 
       hourlyRefresh.addEventListener("click", () =>
-        loadSummaries("hourly").catch(console.error)
+        loadHourlyData().catch(console.error)
       );
+      latestRefresh.addEventListener("click", () =>
+        loadHourlyData().catch(console.error)
+      );
+      hourlyHistory.addEventListener("change", () =>
+        loadHourlyData().catch(console.error)
+      );
+      hourlyPrev.addEventListener("click", () => {
+        if (hourlyPage > 0) {
+          hourlyPage -= 1;
+          renderHourlyList();
+        }
+      });
+      hourlyNext.addEventListener("click", () => {
+        const history = hourlyData.slice(1);
+        const totalPages = Math.max(
+          1,
+          Math.ceil(history.length / HOURLY_PAGE_SIZE)
+        );
+        if (hourlyPage < totalPages - 1) {
+          hourlyPage += 1;
+          renderHourlyList();
+        }
+      });
+
       dailyRefresh.addEventListener("click", () =>
-        loadSummaries("daily").catch(console.error)
-      );
-      hourlyLimit.addEventListener("change", () =>
-        loadSummaries("hourly").catch(console.error)
+        loadDailyData().catch(console.error)
       );
       dailyLimit.addEventListener("change", () =>
-        loadSummaries("daily").catch(console.error)
+        loadDailyData().catch(console.error)
       );
 
       const bootstrap = async () => {
         try {
-          await Promise.all([
-            loadSummaries("hourly"),
-            loadSummaries("daily"),
-          ]);
+          await Promise.all([loadHourlyData(), loadDailyData()]);
         } catch (err) {
           console.error(err);
           const errorBox = document.createElement("div");

@@ -93,6 +93,7 @@ class HourlySummarizer:
                 "app": item.get("app", "-"),
                 "occurrences": item.get("occurrences", 1),
                 "message": self._clean_message(item.get("message", ""))[:100],
+                "sources": item.get("source_hosts", {}),
             }
             for item in limited_highlights
         ]
@@ -173,7 +174,14 @@ class HourlySummarizer:
             severity = item.get("severity", "info")
             occ = item.get("occurrences", 1)
             message = HourlySummarizer._clean_message(item.get("message", ""))[:50]
-            lines.append(f"[{severity}] {host}/{app}({occ}x): {message}")
+            sources = item.get("sources") or item.get("source_hosts") or {}
+            if sources:
+                source_str = ", ".join(
+                    f"{h}:{c}" for h, c in list(sources.items())[:3]
+                )
+                lines.append(f"[{severity}] {host}/{app} ({occ}x) – {message} | {source_str}")
+            else:
+                lines.append(f"[{severity}] {host}/{app} ({occ}x) – {message}")
         return "\n".join(lines)
 
     @staticmethod
