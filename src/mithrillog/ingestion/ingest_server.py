@@ -11,12 +11,13 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
+from zoneinfo import ZoneInfo
 
 from pydantic import BaseModel
 
 from ..config import IngestConfig
 from ..storage import JournalWriter
-from ..utils.time import ensure_timezone, floor_to_minute, utc_now
+from ..utils.time import ensure_timezone, floor_to_minute, get_timezone, utc_now
 from .dedupe import BloomDeduper, ReservoirSampler
 
 
@@ -159,7 +160,12 @@ def _extract_structured_timestamp(raw: str) -> datetime | None:
     return parsed.astimezone(timezone.utc)
 
 
-def parse_syslog(payload: bytes, addr: str, transport: str) -> LogEvent:
+def parse_syslog(payload: bytes, addr: str, transport: str, syslog_tz: Optional[ZoneInfo] = None) -> LogEvent:
+    """
+    Parse syslog message. If syslog_tz is provided, syslog timestamps without timezone
+    will be interpreted as being in that timezone (defaults to UTC).
+    """
+    
     raw = payload.decode("utf-8", errors="replace").strip()
     timestamp = utc_now()
     host = addr
@@ -186,7 +192,9 @@ def parse_syslog(payload: bytes, addr: str, transport: str) -> LogEvent:
     if len(parts) >= 4:
         try:
             timestamp = datetime.strptime(" ".join(parts[:3]), "%b %d %H:%M:%S")
-            timestamp = timestamp.replace(year=utc_now().year, tzinfo=utc_now().tzinfo)
+            # Use syslog_tz if provided, otherwise UTC
+            tz = syslog_tz if syslog_tz else timezone.utc
+            timestamp = timestamp.replace(year=utc_now().year, tzinfo=tz)
             host = parts[3]
             if len(parts) == 5:
                 message_part = parts[4]
@@ -328,16 +336,20 @@ class IngestServer:
         )
 
     async def _consume_queue(self) -> None:
+        # Use bucket timezone for syslog timestamps (assumes log sources use same timezone)
+        syslog_tz = self.journal.bucket_timezone
         while True:
             data, host, transport = await self._queue.get()
-            event = parse_syslog(data, host, transport)
+            event = parse_syslog(data, host, transport, syslog_tz=syslog_tz)
             await self._handle_event(event)
 
     async def _handle_event(self, event: LogEvent) -> None:
-        # Convert event timestamp to bucket timezone before comparison
+        # Use server receive time (in bucket timezone) for bucket path, not log timestamp
         bucket_tz = self.journal.bucket_timezone
-        event_tz = ensure_timezone(event.timestamp, bucket_tz)
-        bucket_time = floor_to_minute(event_tz)
+        server_now = utc_now()
+        server_tz = ensure_timezone(server_now, bucket_tz)
+        bucket_time = floor_to_minute(server_tz)
+        
         if bucket_time > self._current_bucket:
             await self._flush_bucket()
             self.deduper.reset()
@@ -352,8 +364,8 @@ class IngestServer:
         record = event.model_dump()
         record["pattern_id"] = pattern
         record["occurrences"] = self.sampler.totals().get(pattern, 0) + 1
-        self.sampler.add(event.sample_key(), pattern, record)
-        path = self.journal.append(record)
+        # Use server receive time for bucket path, but keep original log timestamp in record
+        path = self.journal.append(record, bucket_time=server_tz)
         self._last_bucket_path = str(path)
         _ = path  # placeholder for future metrics
 

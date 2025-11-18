@@ -21,9 +21,22 @@ class JournalWriter:
         self.base_dir.mkdir(parents=True, exist_ok=True)
         self.bucket_timezone = get_timezone(timezone_name)
 
-    def append(self, event: dict[str, Any]) -> Path:
-        timestamp = event["timestamp"]
-        bucket = minute_bucket_path(str(self.base_dir), timestamp, tz=self.bucket_timezone)
+    def append(self, event: dict[str, Any], bucket_time: Any = None) -> Path:
+        """
+        Append event to journal. If bucket_time is provided, use it for bucket path.
+        Otherwise, use event timestamp. The event timestamp is always preserved in the record.
+        """
+        from datetime import datetime
+        
+        # Use provided bucket_time (server receive time) or fall back to event timestamp
+        if bucket_time is None:
+            bucket_time = event["timestamp"]
+        elif isinstance(bucket_time, datetime):
+            pass  # Already a datetime
+        else:
+            bucket_time = event["timestamp"]  # Fallback
+        
+        bucket = minute_bucket_path(str(self.base_dir), bucket_time, tz=self.bucket_timezone)
         path = Path(bucket)
         path.parent.mkdir(parents=True, exist_ok=True)
         line = json.dumps(event, separators=(",", ":"), default=str)
