@@ -26,4 +26,5 @@ prompts:
   hourly: ./prompts/hourly_summary.txt
   daily: ./prompts/daily_summary.txt
   anomaly: ./prompts/anomaly_report.txt
+  highlight_analysis: ./prompts/highlight_analysis.txt
 

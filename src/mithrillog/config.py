@@ -44,6 +44,7 @@ class PromptsConfig(BaseModel):
     hourly: Path = Path("prompts/hourly_summary.txt")
     daily: Path = Path("prompts/daily_summary.txt")
     anomaly: Path = Path("prompts/anomaly_report.txt")
+    highlight_analysis: Path = Path("prompts/highlight_analysis.txt")
 
 
 class Settings(BaseModel):

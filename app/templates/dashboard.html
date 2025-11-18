@@ -12,7 +12,7 @@
         <p class="eyebrow">MITHRILLOG</p>
         <h1>Observability Console</h1>
       <p class="subtitle">
-          A polished, apple.com-inspired surface for live log intelligence.
+          A polished, dark-mode surface for live log intelligence.
       </p>
       </div>
       <div class="top-actions">
@@ -21,17 +21,9 @@
     </header>
 
     <main>
-      <section class="hero-grid">
-        <article id="focused-panel" class="focus-card glass"></article>
-        <article class="focus-side glass">
-          <header>
-            <p class="eyebrow">Critical pulse</p>
-            <h3>Latest error snapshot</h3>
-          </header>
-          <div id="error-preview" class="error-preview">
-            <p class="muted">No incidents detected.</p>
-          </div>
-          <a href="#error-monitor" class="ghost-link">Open full error board →</a>
+      <section class="hero-grid fullscreen">
+        <article id="focused-panel" class="focus-card glass fullscreen-card">
+          <p class="muted">Loading latest hourly summary…</p>
         </article>
       </section>
 
@@ -61,7 +53,7 @@
 
       <section class="error-monitor glass" id="error-monitor">
         <div class="section-header">
-          <h2>Error Monitor</h2>
+          <h2>Notable Incidents</h2>
           <div class="controls">
             <label>
               Show last
@@ -127,7 +119,6 @@
 
     <script>
       const focusedPanel = document.getElementById("focused-panel");
-      const errorPreview = document.getElementById("error-preview");
       const hourlyList = document.getElementById("hourly-list");
       const dailyContainer = document.getElementById("daily-container");
       const errorFeed = document.getElementById("error-feed");
@@ -209,34 +200,6 @@
         `;
       };
 
-      const buildMinuteRollup = (rollup = []) => {
-        if (!rollup.length) return null;
-        const recent = rollup.slice(-5);
-        const node = document.createElement("div");
-        node.className = "mini-rollup";
-        node.innerHTML = `
-          <h4>Recent minutes</h4>
-          <div class="mini-rollup-grid">
-            ${recent
-              .map((entry) => {
-                const stamp = new Date(entry.minute);
-                const label = stamp.toLocaleTimeString([], {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                });
-                return `
-                  <div>
-                    <span>${label}</span>
-                    <strong>${entry.total}</strong>
-                  </div>
-                `;
-              })
-              .join("")}
-          </div>
-        `;
-        return node;
-      };
-
       const buildCard = (item, kind, options = {}) => {
         const card = template.content.firstElementChild.cloneNode(true);
         const windowEl = card.querySelector(".window");
@@ -281,7 +244,6 @@
         }
         const item = focusedItem;
         const stats = item.stats || {};
-        const minutes = item.minute_rollup || [];
         const title =
           focusedKind === "hourly"
             ? formatDateRange(item.window_start, item.window_end)
@@ -308,10 +270,13 @@
             `
           )
           .join("");
-        const minuteRollup = buildMinuteRollup(minutes);
+        const highlightAnalysis =
+          (item.highlight_analysis || "").trim() ||
+          "LLM insights pending. Ensure analyzer job ran for this window.";
+
         focusedPanel.innerHTML = `
           <div class="focus-header">
-            <p class="eyebrow">${focusedKind === "hourly" ? "Hourly" : "Daily"} focus</p>
+            <p class="eyebrow">Latest ${focusedKind === "hourly" ? "hourly" : "daily"} summary</p>
             <h2>${title}</h2>
           </div>
           <div class="focus-metrics">
@@ -339,12 +304,13 @@
           <p class="focus-summary">${
             item.summary || "No summary available."
           }</p>
+          <div class="ai-highlights">
+            <h3>Highlights analyze</h3>
+            <p class="muted">${highlightAnalysis}</p>
+          </div>
           <div class="focus-highlight-wrap">
             ${highlightHtml || "<p class='muted'>No highlights captured.</p>"}
           </div>
-          <div class="focus-minute-wrap">${
-            minuteRollup ? minuteRollup.outerHTML || minuteRollup.innerHTML : ""
-          }</div>
         `;
       };
 
@@ -421,9 +387,6 @@
       hourlyRefresh.addEventListener("click", () =>
         loadHourlyData().catch(console.error)
       );
-      latestRefresh.addEventListener("click", () =>
-        loadHourlyData().catch(console.error)
-      );
       hourlyHistory.addEventListener("change", () =>
         loadHourlyData().catch(console.error)
       );
@@ -475,11 +438,19 @@
             `
           )
           .join("");
+        const topHighlight = (item.highlights || [])[0];
+        const incidentSummary = topHighlight
+          ? `${topHighlight.message} — ${topHighlight.host}/${topHighlight.app}`
+          : "Review severity mix to understand the spike.";
+        const actionHint = topHighlight
+          ? `Inspect ${topHighlight.host} (${topHighlight.app}) for recurring ${topHighlight.severity} events.`
+          : "Drill into affected hosts for more context.";
         card.innerHTML = `
           <header>
             <h3>${windowLabel}</h3>
             <span class="meta">${item.total_errors} critical events</span>
           </header>
+          <p class="incident-summary">${incidentSummary}</p>
           <div class="error-meta">
             <div>
               <h4>Severity mix</h4>
@@ -498,6 +469,7 @@
             <h4>Samples</h4>
             <ul>${highlights || "<li>No error highlights captured.</li>"}</ul>
           </div>
+          <p class="muted action-hint">${actionHint}</p>
         `;
         return card;
       };
@@ -506,30 +478,6 @@
         focusedItem = item;
         focusedKind = kind;
         renderFocus();
-      };
-
-      const renderErrorPreview = (items) => {
-        if (!items.length) {
-          errorPreview.innerHTML = "<p class='muted'>All calm.</p>";
-          return;
-        }
-        const item = items[0];
-        errorPreview.innerHTML = `
-          <p class="eyebrow">${formatDateRange(
-            item.window_start,
-            item.window_end
-          )}</p>
-          <p class="headline">${item.total_errors} critical events</p>
-          <div class="pill-row">
-            ${(item.severity_breakdown || [])
-              .slice(0, 3)
-              .map(
-                (entry) =>
-                  `<span class="pill severity-${entry.severity}">${entry.severity}: ${entry.count}</span>`
-              )
-              .join("")}
-          </div>
-        `;
       };
 
       const loadErrorInsights = async () => {
@@ -544,13 +492,11 @@
         if (!items.length) {
           errorFeed.innerHTML =
             '<p class="empty">No critical errors detected recently.</p>';
-          errorPreview.innerHTML = "<p class='muted'>All calm.</p>";
           return;
         }
         for (const item of items) {
           errorFeed.appendChild(buildErrorCard(item));
         }
-        renderErrorPreview(items);
       };
 
       const bootstrap = async () => {
