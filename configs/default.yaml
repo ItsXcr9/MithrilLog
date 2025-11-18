@@ -1,4 +1,5 @@
 environment: dev
+timezone: Asia/Tehran
 llm:
   backend: llama_cpp
   model_path: ./models/llama4-dolphin-8B.Q3_K_M.gguf
