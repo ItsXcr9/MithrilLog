@@ -52,6 +52,10 @@ class HourlySummarizer:
         highlights: List[Dict[str, Any]] = []
         minute_rollup: List[Dict[str, Any]] = []
 
+        # Aggregate pattern occurrences across all minutes
+        pattern_aggregates: Dict[str, Dict[str, Any]] = {}
+        pattern_occurrences: Counter[str] = Counter()
+        
         for minute in range(60):
             bucket_time = start + timedelta(minutes=minute)
             bucket_meta_path = Path(
@@ -74,7 +78,32 @@ class HourlySummarizer:
             severity_counter.update(meta.get("severity", {}))
             host_counter.update(meta.get("hosts", {}))
             app_counter.update(meta.get("apps", {}))
-            highlights.extend(meta.get("highlights", []))
+            
+            # Aggregate highlights by pattern_id
+            for highlight in meta.get("highlights", []):
+                pattern_id = highlight.get("pattern_id")
+                if not pattern_id:
+                    continue
+                occ = highlight.get("occurrences", 1)
+                pattern_occurrences[pattern_id] += occ
+                
+                # Keep the most recent sample for each pattern
+                if pattern_id not in pattern_aggregates:
+                    pattern_aggregates[pattern_id] = highlight.copy()
+                    # Remove old source_hosts/apps, we'll rebuild them
+                    pattern_aggregates[pattern_id]["source_hosts"] = Counter()
+                    pattern_aggregates[pattern_id]["source_apps"] = Counter()
+                
+                # Merge source hosts/apps (they might be dicts or Counters)
+                source_hosts = highlight.get("source_hosts") or {}
+                source_apps = highlight.get("source_apps") or {}
+                if isinstance(source_hosts, dict):
+                    for host, count in source_hosts.items():
+                        pattern_aggregates[pattern_id]["source_hosts"][host] += count
+                if isinstance(source_apps, dict):
+                    for app, count in source_apps.items():
+                        pattern_aggregates[pattern_id]["source_apps"][app] += count
+            
             minute_rollup.append(
                 {
                     "minute": bucket_time.isoformat(),
@@ -83,10 +112,30 @@ class HourlySummarizer:
                 }
             )
 
-        highlights_sorted = sorted(
-            highlights, key=lambda item: item.get("occurrences", 1), reverse=True
-        )
-        limited_highlights = highlights_sorted[:3]
+        # Update aggregated highlights with total occurrences
+        for pattern_id, highlight in pattern_aggregates.items():
+            highlight["occurrences"] = pattern_occurrences[pattern_id]
+            highlight["source_hosts"] = dict(highlight["source_hosts"].most_common(5))
+            highlight["source_apps"] = dict(highlight["source_apps"].most_common(5))
+        
+        highlights = list(pattern_aggregates.values())
+        
+        # Severity priority: error > warning > crit > alert > emerg > notice > info > debug
+        severity_priority = {
+            "error": 0, "err": 0, "warning": 1, "warn": 1, "crit": 2, "critical": 2,
+            "alert": 3, "emerg": 4, "emergency": 4, "notice": 5, "info": 6, "debug": 7
+        }
+        
+        def sort_key(item: Dict[str, Any]) -> tuple:
+            severity = item.get("severity", "info").lower()
+            priority = severity_priority.get(severity, 6)
+            occurrences = item.get("occurrences", 1)
+            # Sort by priority first (lower is higher priority), then by occurrences (descending)
+            return (priority, -occurrences)
+        
+        highlights_sorted = sorted(highlights, key=sort_key)
+        # Show top 5 highlights (prioritizing errors/warnings)
+        limited_highlights = highlights_sorted[:5]
         condensed_highlights = [
             {
                 "severity": item.get("severity", "info"),
@@ -98,10 +147,11 @@ class HourlySummarizer:
             }
             for item in limited_highlights
         ]
+        # Show top 10 highlights for context (prioritizing errors/warnings)
         highlight_lines = [
             f"[{item.get('severity', 'info')}] {item.get('host', 'unknown')}/{item.get('app', '-')}"
             f" ({item.get('occurrences', 1)}x) - {self._clean_message(item.get('message', ''))[:160]}"
-            for item in highlights_sorted[:8]
+            for item in highlights_sorted[:10]
         ]
         highlight_context = "\n".join(highlight_lines).strip()
 
@@ -144,7 +194,7 @@ class HourlySummarizer:
             "anomalies": anomaly_text,
             "stats": stats_struct,
             "minute_rollup": minute_rollup,
-            "highlights": highlights_sorted[:10],
+            "highlights": highlights_sorted[:15],  # Show more highlights in report
             "highlight_analysis": highlight_analysis,
         }
 
