@@ -58,6 +58,11 @@ section {
   color: #cbd5f5;
 }
 
+.controls.stack {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 select,
 button {
   background: rgba(148, 163, 184, 0.08);
@@ -71,6 +76,17 @@ button {
 
 button:hover {
   background: rgba(148, 163, 184, 0.16);
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.pager {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .card-grid {
@@ -93,6 +109,75 @@ button:hover {
 
 .card header {
   gap: 4px;
+}
+
+.hero-card {
+  border: 1px solid rgba(248, 250, 252, 0.3);
+  padding-top: 20px;
+  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.5);
+}
+
+.latest-card-slot {
+  min-height: 180px;
+}
+
+.hero-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.hero-metrics div {
+  background: rgba(148, 163, 184, 0.08);
+  border-radius: 10px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.hero-metrics span {
+  font-size: 0.75rem;
+  color: #94a3b8;
+}
+
+.hero-metrics strong {
+  font-size: 1.1rem;
+}
+
+.mini-rollup {
+  margin-top: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.mini-rollup h4 {
+  margin: 0 0 8px 0;
+  font-size: 0.95rem;
+  color: #cbd5f5;
+}
+
+.mini-rollup-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+  gap: 8px;
+}
+
+.mini-rollup-grid div {
+  background: rgba(148, 163, 184, 0.06);
+  border-radius: 8px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: center;
+}
+
+.mini-rollup-grid span {
+  font-size: 0.75rem;
+  color: #94a3b8;
 }
 
 .card h3 {
@@ -140,6 +225,22 @@ details summary:hover {
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+.highlight-sources {
+  margin-top: 4px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chip {
+  border-radius: 999px;
+  padding: 2px 10px;
+  font-size: 0.78rem;
+  background: rgba(56, 189, 248, 0.12);
+  color: #bae6fd;
+  border: 1px solid rgba(56, 189, 248, 0.35);
 }
 
 pre {

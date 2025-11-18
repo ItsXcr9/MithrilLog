@@ -47,8 +47,8 @@
 ### 4.2 Syslog Parsing (`parse_syslog`)
 - Decodes bytes, keeps raw string, best-effort RFC 3164 parsing to pull priority, timestamp, host, app, severity/facility.
 - Wraps parsed data into `LogEvent` (Pydantic model) with helper methods:
-  - `normalize_message()`: attempts JSON parsing (MongoDB-style logs) to extract stable pattern, replaces numeric fields with placeholders; fallback removes numbers/timestamps from raw text.
-  - `dedupe_key()`: JSON blob of host/app/severity/facility/normalized message → bytes.
+  - `normalize_message()`: attempts JSON parsing (MongoDB-style logs) to extract stable pattern, replaces numbers, GUIDs, hashes, IPs, MACs, and long quoted strings with canonical placeholders.
+  - `dedupe_key()`: JSON blob of `{severity, facility, normalized_message}` (host/app excluded to collapse cross-host repeats) → bytes.
   - `sample_key()`: `host:severity:app` string for reservoir partitioning.
   - `pattern_id()`: SHA1 of dedupe key (hex string).
 
@@ -69,10 +69,10 @@
 
 ### 4.5 Bucket Flush & Metadata
 - Triggered when bucket rolls or during shutdown.
-- Reads NDJSON file, reconstructs aggregated stats:
+- Uses live counters accumulated during the bucket (so duplicates still influence stats even if only one sample is stored) plus the NDJSON samples to build:
   - `severity_counts`, `host_counts`, `app_counts`
-  - `highlights`: sampled events annotated with final `occurrences`
-  - `patterns`: sampler totals (pattern → count)
+  - `patterns`: occurrences per pattern (from sampler + counters)
+  - `highlights`: sample event annotated with `occurrences`, `source_hosts`, `source_apps`
   - `total_events`, `unique_events`
 - Writes `<bucket>.meta.json` covering bucket window, per-field counts, plus top 50 highlights sorted by occurrences.
 
