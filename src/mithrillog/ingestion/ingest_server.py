@@ -7,7 +7,7 @@ import json
 import re
 from asyncio import AbstractEventLoop
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -17,6 +17,11 @@ from ..config import IngestConfig
 from ..storage import JournalWriter
 from ..utils.time import floor_to_minute, utc_now
 from .dedupe import BloomDeduper, ReservoirSampler
+
+
+ISO_TIMESTAMP_RE = re.compile(
+    r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})"
+)
 
 
 class LogEvent(BaseModel):
@@ -117,6 +122,22 @@ class LogEvent(BaseModel):
         return hashlib.sha1(self.dedupe_key()).hexdigest()
 
 
+def _extract_structured_timestamp(raw: str) -> datetime | None:
+    match = ISO_TIMESTAMP_RE.search(raw)
+    if not match:
+        return None
+    iso_str = match.group(0)
+    if iso_str.endswith("Z"):
+        iso_str = iso_str[:-1] + "+00:00"
+    try:
+        parsed = datetime.fromisoformat(iso_str)
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
+
+
 def parse_syslog(payload: bytes, addr: str, transport: str) -> LogEvent:
     raw = payload.decode("utf-8", errors="replace").strip()
     timestamp = utc_now()
@@ -159,6 +180,14 @@ def parse_syslog(payload: bytes, addr: str, transport: str) -> LogEvent:
         except ValueError:
             host = parts[0]
             message = remainder
+
+    structured_ts = _extract_structured_timestamp(raw)
+    if structured_ts is not None:
+        timestamp = structured_ts
+    elif timestamp.tzinfo is None:
+        timestamp = timestamp.replace(tzinfo=timezone.utc)
+    else:
+        timestamp = timestamp.astimezone(timezone.utc)
 
     return LogEvent(
         timestamp=timestamp,
