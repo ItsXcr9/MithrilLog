@@ -7,25 +7,35 @@
     <link rel="stylesheet" href="/static/styles.css" />
   </head>
   <body>
-    <header>
-      <h1>MithrilLog Summaries</h1>
+    <header class="top-bar glass">
+      <div>
+        <p class="eyebrow">MITHRILLOG</p>
+        <h1>Observability Console</h1>
       <p class="subtitle">
-        Live hourly and daily insights produced by the local LLM.
+          A polished, apple.com-inspired surface for live log intelligence.
       </p>
+      </div>
+      <div class="top-actions">
+        <button id="global-refresh">Refresh Data</button>
+      </div>
     </header>
 
     <main>
-      <section class="latest-hourly">
-        <div class="section-header">
-          <h2>Latest Hourly Summary</h2>
-          <div class="controls">
-            <button id="latest-refresh">Refresh</button>
+      <section class="hero-grid">
+        <article id="focused-panel" class="focus-card glass"></article>
+        <article class="focus-side glass">
+          <header>
+            <p class="eyebrow">Critical pulse</p>
+            <h3>Latest error snapshot</h3>
+          </header>
+          <div id="error-preview" class="error-preview">
+            <p class="muted">No incidents detected.</p>
           </div>
-        </div>
-        <div id="latest-hourly-card" class="latest-card-slot"></div>
+          <a href="#error-monitor" class="ghost-link">Open full error board →</a>
+        </article>
       </section>
 
-      <section>
+      <section class="timeline-panel glass">
         <div class="section-header">
           <h2>Hourly Timeline</h2>
           <div class="controls stack">
@@ -49,7 +59,7 @@
         <div id="hourly-list" class="card-grid"></div>
       </section>
 
-      <section class="error-monitor">
+      <section class="error-monitor glass" id="error-monitor">
         <div class="section-header">
           <h2>Error Monitor</h2>
           <div class="controls">
@@ -92,7 +102,8 @@
       <span>
         Data source:
         <code>/summaries/hourly</code>,
-        <code>/summaries/daily</code>
+        <code>/summaries/daily</code>,
+        <code>/insights/errors</code>
       </span>
     </footer>
 
@@ -115,13 +126,13 @@
     </template>
 
     <script>
-      const latestSlot = document.getElementById("latest-hourly-card");
+      const focusedPanel = document.getElementById("focused-panel");
+      const errorPreview = document.getElementById("error-preview");
       const hourlyList = document.getElementById("hourly-list");
       const dailyContainer = document.getElementById("daily-container");
       const errorFeed = document.getElementById("error-feed");
       const hourlyHistory = document.getElementById("hourly-history");
       const hourlyRefresh = document.getElementById("hourly-refresh");
-      const latestRefresh = document.getElementById("latest-refresh");
       const hourlyPrev = document.getElementById("hourly-prev");
       const hourlyNext = document.getElementById("hourly-next");
       const hourlyPageIndicator = document.getElementById("hourly-page-indicator");
@@ -129,11 +140,14 @@
       const dailyRefresh = document.getElementById("daily-refresh");
       const errorLimit = document.getElementById("error-limit");
       const errorRefresh = document.getElementById("error-refresh");
+      const globalRefresh = document.getElementById("global-refresh");
       const template = document.getElementById("summary-card-template");
 
       const HOURLY_PAGE_SIZE = 6;
       let hourlyData = [];
       let hourlyPage = 0;
+      let focusedItem = null;
+      let focusedKind = "hourly";
 
       const formatDateRange = (start, end) => {
         const startDate = new Date(start);
@@ -223,42 +237,6 @@
         return node;
       };
 
-      const decorateLatestCard = (card, item) => {
-        card.classList.add("hero-card");
-        const summaryEl = card.querySelector(".summary");
-        const metrics = document.createElement("div");
-        metrics.className = "hero-metrics";
-        const stats = item.stats || {};
-        const topSeverity =
-          Object.entries(stats.by_severity || {})[0]?.join(": ") || "—";
-        const topHost =
-          Object.entries(stats.top_hosts || {})[0]?.join(": ") || "—";
-        metrics.innerHTML = `
-          <div>
-            <span>Total</span>
-            <strong>${stats.total_events ?? 0}</strong>
-          </div>
-          <div>
-            <span>Unique</span>
-            <strong>${stats.unique_events ?? "—"}</strong>
-          </div>
-          <div>
-            <span>Top severity</span>
-            <strong>${topSeverity}</strong>
-          </div>
-          <div>
-            <span>Top host</span>
-            <strong>${topHost}</strong>
-          </div>
-        `;
-        summaryEl.parentElement.insertBefore(metrics, summaryEl);
-        const rollup = buildMinuteRollup(item.minute_rollup || []);
-        if (rollup) {
-          const details = card.querySelector("details");
-          details.parentElement.insertBefore(rollup, details);
-        }
-      };
-
       const buildCard = (item, kind, options = {}) => {
         const card = template.content.firstElementChild.cloneNode(true);
         const windowEl = card.querySelector(".window");
@@ -287,20 +265,87 @@
         anomaliesEl.textContent =
           (item.anomalies || "").trim() || "No anomalies reported.";
 
-        if (options.emphasize) {
-          decorateLatestCard(card, item);
+        if (options.selectable) {
+          card.classList.add("selectable-card");
+          card.addEventListener("click", options.onSelect);
         }
 
         return card;
       };
 
-      const renderLatestHourly = () => {
-        latestSlot.innerHTML = "";
-        if (!hourlyData.length) {
-          latestSlot.innerHTML = '<p class="empty">No summaries yet.</p>';
+      const renderFocus = () => {
+        if (!focusedItem) {
+          focusedPanel.innerHTML =
+            '<div class="empty">Select a window to see its details.</div>';
           return;
         }
-        latestSlot.appendChild(buildCard(hourlyData[0], "hourly", { emphasize: true }));
+        const item = focusedItem;
+        const stats = item.stats || {};
+        const minutes = item.minute_rollup || [];
+        const title =
+          focusedKind === "hourly"
+            ? formatDateRange(item.window_start, item.window_end)
+            : formatDateRange(item.day_start, item.day_end);
+        const topSeverity =
+          Object.entries(stats.by_severity || {})[0]?.join(": ") || "—";
+        const topHost =
+          Object.entries(stats.top_hosts || {})[0]?.join(": ") || "—";
+        const topApp =
+          Object.entries(stats.top_apps || {})[0]?.join(": ") || "—";
+        const highlightHtml = (item.highlights || [])
+          .slice(0, 4)
+          .map(
+            (h) => `
+              <div class="focus-highlight">
+                <span class="pill severity-${h.severity || "info"}">${
+              h.severity || "info"
+            }</span>
+                <p>${h.message || "No message provided."}</p>
+                <small>${h.host || "unknown"} / ${h.app || "-"} • ${
+              h.occurrences ?? 1
+            }×</small>
+              </div>
+            `
+          )
+          .join("");
+        const minuteRollup = buildMinuteRollup(minutes);
+        focusedPanel.innerHTML = `
+          <div class="focus-header">
+            <p class="eyebrow">${focusedKind === "hourly" ? "Hourly" : "Daily"} focus</p>
+            <h2>${title}</h2>
+          </div>
+          <div class="focus-metrics">
+            <div>
+              <span>Total</span>
+              <strong>${stats.total_events ?? 0}</strong>
+            </div>
+            <div>
+              <span>Unique</span>
+              <strong>${stats.unique_events ?? "—"}</strong>
+            </div>
+            <div>
+              <span>Top severity</span>
+              <strong>${topSeverity}</strong>
+            </div>
+            <div>
+              <span>Top host</span>
+              <strong>${topHost}</strong>
+            </div>
+            <div>
+              <span>Top app</span>
+              <strong>${topApp}</strong>
+            </div>
+          </div>
+          <p class="focus-summary">${
+            item.summary || "No summary available."
+          }</p>
+          <div class="focus-highlight-wrap">
+            ${highlightHtml || "<p class='muted'>No highlights captured.</p>"}
+          </div>
+          <div class="focus-minute-wrap">${
+            minuteRollup ? minuteRollup.outerHTML || minuteRollup.innerHTML : ""
+          }</div>
+        `;
       };
 
       const renderHourlyList = () => {
@@ -322,7 +367,12 @@
         const start = hourlyPage * HOURLY_PAGE_SIZE;
         const pageItems = history.slice(start, start + HOURLY_PAGE_SIZE);
         for (const item of pageItems) {
-          hourlyList.appendChild(buildCard(item, "hourly"));
+          hourlyList.appendChild(
+            buildCard(item, "hourly", {
+              selectable: true,
+              onSelect: () => setFocus(item, "hourly"),
+            })
+          );
         }
         hourlyPageIndicator.textContent = `Page ${hourlyPage + 1}/${totalPages}`;
         hourlyPrev.disabled = hourlyPage === 0;
@@ -338,7 +388,11 @@
         const data = await response.json();
         hourlyData = data.items || [];
         hourlyPage = 0;
-        renderLatestHourly();
+        if (hourlyData.length) {
+          setFocus(hourlyData[0], "hourly");
+        } else {
+          setFocus(null, "hourly");
+        }
         renderHourlyList();
       };
 
@@ -355,7 +409,12 @@
           return;
         }
         for (const item of data.items) {
-          dailyContainer.appendChild(buildCard(item, "daily"));
+          dailyContainer.appendChild(
+            buildCard(item, "daily", {
+              selectable: true,
+              onSelect: () => setFocus(item, "daily"),
+            })
+          );
         }
       };
 
@@ -443,6 +502,36 @@
         return card;
       };
 
+      const setFocus = (item, kind) => {
+        focusedItem = item;
+        focusedKind = kind;
+        renderFocus();
+      };
+
+      const renderErrorPreview = (items) => {
+        if (!items.length) {
+          errorPreview.innerHTML = "<p class='muted'>All calm.</p>";
+          return;
+        }
+        const item = items[0];
+        errorPreview.innerHTML = `
+          <p class="eyebrow">${formatDateRange(
+            item.window_start,
+            item.window_end
+          )}</p>
+          <p class="headline">${item.total_errors} critical events</p>
+          <div class="pill-row">
+            ${(item.severity_breakdown || [])
+              .slice(0, 3)
+              .map(
+                (entry) =>
+                  `<span class="pill severity-${entry.severity}">${entry.severity}: ${entry.count}</span>`
+              )
+              .join("")}
+          </div>
+        `;
+      };
+
       const loadErrorInsights = async () => {
         const limit = parseInt(errorLimit.value, 10);
         const response = await fetch(`/insights/errors?limit=${limit}`);
@@ -451,14 +540,17 @@
         }
         const data = await response.json();
         errorFeed.innerHTML = "";
-        if (!data.items || !data.items.length) {
+        const items = data.items || [];
+        if (!items.length) {
           errorFeed.innerHTML =
             '<p class="empty">No critical errors detected recently.</p>';
+          errorPreview.innerHTML = "<p class='muted'>All calm.</p>";
           return;
         }
-        for (const item of data.items) {
+        for (const item of items) {
           errorFeed.appendChild(buildErrorCard(item));
         }
+        renderErrorPreview(items);
       };
 
       const bootstrap = async () => {
@@ -479,6 +571,10 @@
       );
       errorLimit.addEventListener("change", () =>
         loadErrorInsights().catch(console.error)
+      );
+
+      globalRefresh.addEventListener("click", () =>
+        bootstrap().catch(console.error)
       );
 
       bootstrap();
