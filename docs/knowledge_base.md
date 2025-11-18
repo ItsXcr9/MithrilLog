@@ -113,6 +113,7 @@
 - Invokes:
   - `hourly_summary` prompt for narrative.
   - `anomaly` prompt for anomaly report.
+  - `highlight_analysis` prompt to produce a short, LLM-written analysis of highlight patterns (stored as `highlight_analysis` in the report).
 - Persists report JSON (skips if already present to avoid duplication).
 
 ### 6.4 Daily Summaries

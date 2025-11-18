@@ -28,6 +28,7 @@ class HourlySummarizer:
         self.report_dir.mkdir(parents=True, exist_ok=True)
         self.prompt = load_prompt_template(Path(settings.prompts.hourly))
         self.anomaly_prompt = load_prompt_template(Path(settings.prompts.anomaly))
+        self.highlight_prompt = load_prompt_template(Path(settings.prompts.highlight_analysis))
 
     def summarize_hour(self, target: datetime) -> Dict[str, Any]:
         start = target.replace(minute=0, second=0, microsecond=0)
@@ -97,6 +98,12 @@ class HourlySummarizer:
             }
             for item in limited_highlights
         ]
+        highlight_lines = [
+            f"[{item.get('severity', 'info')}] {item.get('host', 'unknown')}/{item.get('app', '-')}"
+            f" ({item.get('occurrences', 1)}x) - {self._clean_message(item.get('message', ''))[:160]}"
+            for item in highlights_sorted[:8]
+        ]
+        highlight_context = "\n".join(highlight_lines).strip()
 
         stats_struct = {
             "total_events": total_events,
@@ -118,6 +125,17 @@ class HourlySummarizer:
 
         summary_text = self.llm.generate(self.prompt, variables)
         anomaly_text = self.llm.generate(self.anomaly_prompt, variables)
+        if highlight_context:
+            highlight_analysis = self.llm.generate(
+                self.highlight_prompt,
+                {
+                    "window_start": start.isoformat(),
+                    "window_end": end.isoformat(),
+                    "highlights_text": highlight_context,
+                },
+            )
+        else:
+            highlight_analysis = "No notable highlights."
 
         report = {
             "window_start": start.isoformat(),
@@ -127,6 +145,7 @@ class HourlySummarizer:
             "stats": stats_struct,
             "minute_rollup": minute_rollup,
             "highlights": highlights_sorted[:10],
+            "highlight_analysis": highlight_analysis,
         }
 
         report_path = self.report_dir / f"{start:%Y/%m/%d/%H}.json"
