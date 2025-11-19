@@ -14,6 +14,7 @@ const dailyRefresh = document.getElementById("daily-refresh");
 const errorLimit = document.getElementById("error-limit");
 const errorRefresh = document.getElementById("error-refresh");
 const globalRefresh = document.getElementById("global-refresh");
+const chartRefresh = document.getElementById("chart-refresh");
 const template = document.getElementById("summary-card-template");
 
 const HOURLY_PAGE_SIZE = 6;
@@ -486,30 +487,21 @@ const loadErrorInsights = async () => {
   }
 };
 
-const bootstrap = async () => {
-  try {
-    await Promise.all([
-      loadHourlyData(),
-      loadDailyData(),
-      loadErrorInsights()
-    ]);
-  } catch (err) {
-    console.error("Bootstrap error:", err);
-    const errorBox = document.createElement("div");
-    errorBox.className = "error";
-    errorBox.style.margin = "2rem";
-    errorBox.style.padding = "1rem";
-    errorBox.style.background = "var(--error-bg)";
-    errorBox.style.border = "1px solid var(--error-border)";
-    errorBox.style.borderRadius = "var(--radius-md)";
-    errorBox.style.color = "var(--error-text)";
-    errorBox.textContent = "Failed to load dashboard data. Please check API connectivity and try again.";
-    const main = document.querySelector("main");
-    if (main) {
-      main.prepend(errorBox);
-    } else {
-      document.body.prepend(errorBox);
-    }
+const showError = () => {
+  const errorBox = document.createElement("div");
+  errorBox.className = "error";
+  errorBox.style.margin = "2rem";
+  errorBox.style.padding = "1rem";
+  errorBox.style.background = "var(--error-bg)";
+  errorBox.style.border = "1px solid var(--error-border)";
+  errorBox.style.borderRadius = "var(--radius-md)";
+  errorBox.style.color = "var(--error-text)";
+  errorBox.textContent = "Failed to load dashboard data. Please check API connectivity and try again.";
+  const main = document.querySelector("main");
+  if (main) {
+    main.prepend(errorBox);
+  } else {
+    document.body.prepend(errorBox);
   }
 };
 
@@ -540,6 +532,346 @@ errorRefresh.addEventListener("click", () => loadErrorInsights().catch(console.e
 errorLimit.addEventListener("change", () => loadErrorInsights().catch(console.error));
 
 globalRefresh.addEventListener("click", () => bootstrap().catch(console.error));
+if (chartRefresh) {
+  chartRefresh.addEventListener("click", () => loadLogCountChart().catch(console.error));
+}
+
+// Chart Functions - D3 Area Chart
+const loadLogCountChart = async () => {
+  try {
+    // Check if D3 is loaded - wait a bit if not
+    let d3Lib = typeof d3 !== 'undefined' ? d3 : (typeof window.d3 !== 'undefined' ? window.d3 : null);
+    
+    if (!d3Lib) {
+      // Wait up to 2 seconds for D3 to load
+      for (let i = 0; i < 20; i++) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        d3Lib = typeof d3 !== 'undefined' ? d3 : (typeof window.d3 !== 'undefined' ? window.d3 : null);
+        if (d3Lib) {
+          break;
+        }
+      }
+      
+      // Final check
+      if (!d3Lib) {
+        console.error("D3.js is not loaded after waiting");
+        const container = document.querySelector(".chart-container");
+        if (container) {
+          container.innerHTML = '<p class="empty">Error: D3.js library failed to load. Please refresh the page.</p>';
+        }
+        return;
+      }
+    }
+    
+    // Check if SVG element exists (with retry)
+    let svgElement = document.getElementById("log-count-chart");
+    if (!svgElement) {
+      // Wait a bit and try again
+      await new Promise(resolve => setTimeout(resolve, 500));
+      svgElement = document.getElementById("log-count-chart");
+      if (!svgElement) {
+        console.error("Chart SVG element not found after retry");
+        return;
+      }
+    }
+    
+    const response = await fetch("/metrics/log-counts?days=30", {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+      },
+      credentials: 'same-origin'
+    });
+    if (!response.ok) {
+      throw new Error(`Failed to load log counts: ${response.status}`);
+    }
+    const data = await response.json();
+    const items = data.items || [];
+    
+    console.log(`Loaded ${items.length} data points for chart`);
+    
+    const svg = d3Lib.select("#log-count-chart");
+    svg.selectAll("*").remove();
+    
+    if (items.length === 0) {
+      const container = document.querySelector(".chart-container");
+      if (container) {
+        container.innerHTML = '<p class="empty">No log data available for the past 30 days.</p>';
+      }
+      return;
+    }
+    
+    // Prepare data
+    const chartData = items.map(item => ({
+      date: new Date(item.timestamp),
+      value: item.count
+    }));
+    
+    // Set dimensions and margins
+    const container = document.querySelector(".chart-container");
+    const width = container ? container.clientWidth - 60 : 800;
+    const height = 400;
+    const marginTop = 20;
+    const marginRight = 20;
+    const marginBottom = 40;
+    const marginLeft = 60;
+    
+    // Set up SVG
+    svg.attr("width", width)
+       .attr("height", height)
+       .attr("viewBox", [0, 0, width, height])
+       .attr("style", "max-width: 100%; height: auto;");
+    
+    // Create scales
+    const xScale = d3Lib.scaleTime()
+      .domain(d3Lib.extent(chartData, d => d.date))
+      .range([marginLeft, width - marginRight]);
+    
+    const yScale = d3Lib.scaleLinear()
+      .domain([0, d3Lib.max(chartData, d => d.value)])
+      .nice()
+      .range([height - marginBottom, marginTop]);
+    
+    // Create area generator
+    const area = d3Lib.area()
+      .x(d => xScale(d.date))
+      .y0(yScale(0))
+      .y1(d => yScale(d.value))
+      .curve(d3Lib.curveMonotoneX);
+    
+    // Create line generator
+    const line = d3Lib.line()
+      .x(d => xScale(d.date))
+      .y(d => yScale(d.value))
+      .curve(d3Lib.curveMonotoneX);
+    
+    // Get CSS variables for colors
+    const getCSSVar = (varName) => {
+      return getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
+    };
+    const accentPrimary = getCSSVar('--accent-primary') || '#3b82f6';
+    const accentSecondary = getCSSVar('--accent-secondary') || '#6366f1';
+    const textSecondary = getCSSVar('--text-secondary') || '#9ca3af';
+    const borderSubtle = getCSSVar('--border-subtle') || '#343842';
+    
+    // Add area with gradient
+    const gradient = svg.append("defs")
+      .append("linearGradient")
+      .attr("id", "area-gradient")
+      .attr("gradientUnits", "userSpaceOnUse")
+      .attr("x1", 0)
+      .attr("y1", height - marginBottom)
+      .attr("x2", 0)
+      .attr("y2", marginTop);
+    
+    gradient.append("stop")
+      .attr("offset", "0%")
+      .attr("stop-color", accentPrimary)
+      .attr("stop-opacity", 0.3);
+    
+    gradient.append("stop")
+      .attr("offset", "100%")
+      .attr("stop-color", accentPrimary)
+      .attr("stop-opacity", 0.05);
+    
+    svg.append("path")
+      .datum(chartData)
+      .attr("fill", "url(#area-gradient)")
+      .attr("d", area);
+    
+    // Add line
+    svg.append("path")
+      .datum(chartData)
+      .attr("fill", "none")
+      .attr("stroke", accentPrimary)
+      .attr("stroke-width", 2.5)
+      .attr("stroke-linecap", "round")
+      .attr("stroke-linejoin", "round")
+      .attr("d", line);
+    
+    // Add x-axis
+    const xAxis = d3Lib.axisBottom(xScale)
+      .ticks(width / 80)
+      .tickSizeOuter(0)
+      .tickFormat(d3Lib.timeFormat("%b %d"));
+    
+    // Add x-axis
+    const xAxisG = svg.append("g")
+      .attr("transform", `translate(0,${height - marginBottom})`)
+      .call(xAxis);
+    
+    xAxisG.selectAll("text")
+      .style("fill", textSecondary)
+      .style("font-size", "11px")
+      .style("font-family", "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif");
+    
+    xAxisG.selectAll("line, path")
+      .style("stroke", borderSubtle)
+      .style("stroke-width", 1);
+    
+    // Add y-axis
+    const yAxis = d3Lib.axisLeft(yScale)
+      .ticks(height / 40)
+      .tickFormat(d => {
+        if (d >= 1000) return (d / 1000).toFixed(1) + "k";
+        return d;
+      });
+    
+    const yAxisG = svg.append("g")
+      .attr("transform", `translate(${marginLeft},0)`)
+      .call(yAxis);
+    
+    yAxisG.selectAll("text")
+      .style("fill", textSecondary)
+      .style("font-size", "11px")
+      .style("font-family", "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif");
+    
+    yAxisG.selectAll("line, path")
+      .style("stroke", borderSubtle)
+      .style("stroke-width", 1);
+    
+    // Add grid lines
+    svg.append("g")
+      .attr("transform", `translate(${marginLeft},0)`)
+      .call(d3Lib.axisLeft(yScale)
+        .ticks(height / 40)
+        .tickSize(-width + marginLeft + marginRight)
+        .tickFormat(""))
+      .selectAll("line")
+      .style("stroke", borderSubtle)
+      .style("stroke-opacity", 0.2)
+      .style("stroke-dasharray", "2,4")
+      .style("stroke-width", 1);
+    
+    // Add tooltip matching UI style
+    const tooltipBg = getCSSVar('--bg-tertiary') || '#2d3139';
+    const tooltipText = getCSSVar('--text-primary') || '#e4e7eb';
+    const tooltipBorder = getCSSVar('--border-subtle') || '#343842';
+    
+    const tooltip = d3Lib.select("body").append("div")
+      .attr("class", "chart-tooltip")
+      .style("opacity", 0)
+      .style("position", "absolute")
+      .style("background", tooltipBg)
+      .style("color", tooltipText)
+      .style("padding", "10px 14px")
+      .style("border-radius", "8px")
+      .style("border", `1px solid ${tooltipBorder}`)
+      .style("font-size", "12px")
+      .style("font-family", "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif")
+      .style("pointer-events", "none")
+      .style("z-index", "1000")
+      .style("box-shadow", "0 4px 6px rgba(0, 0, 0, 0.4)");
+    
+    // Add invisible overlay for mouse tracking
+    const overlay = svg.append("rect")
+      .attr("fill", "none")
+      .attr("pointer-events", "all")
+      .attr("width", width)
+      .attr("height", height);
+    
+    // Add vertical line for hover
+    const verticalLine = svg.append("line")
+      .attr("stroke", accentPrimary)
+      .attr("stroke-width", 1.5)
+      .attr("stroke-opacity", 0.4)
+      .attr("stroke-dasharray", "4,4")
+      .style("opacity", 0);
+    
+    // Add hover circle
+    const hoverCircle = svg.append("circle")
+      .attr("r", 5)
+      .attr("fill", accentPrimary)
+      .attr("stroke", getCSSVar('--bg-secondary') || '#24272e')
+      .attr("stroke-width", 3)
+      .style("opacity", 0);
+    
+    // Mouse move handler
+    overlay.on("mousemove", function(event) {
+      const [mouseX] = d3Lib.pointer(event, this);
+      const x0 = xScale.invert(mouseX);
+      const bisect = d3Lib.bisector(d => d.date).left;
+      const i = bisect(chartData, x0, 1);
+      const d0 = chartData[i - 1];
+      const d1 = chartData[i];
+      const d = d1 && (x0 - d0.date > d1.date - x0) ? d1 : d0;
+      
+      if (d) {
+        verticalLine
+          .attr("x1", xScale(d.date))
+          .attr("x2", xScale(d.date))
+          .attr("y1", marginTop)
+          .attr("y2", height - marginBottom)
+          .style("opacity", 1);
+        
+        hoverCircle
+          .attr("cx", xScale(d.date))
+          .attr("cy", yScale(d.value))
+          .style("opacity", 1);
+        
+        const dateStr = d.date.toLocaleString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          timeZone: 'Asia/Tehran'
+        });
+        
+        tooltip
+          .html(`<div style="font-weight: 600; margin-bottom: 4px; color: ${accentPrimary};">${dateStr}</div><div style="color: ${textSecondary};">Logs: <strong style="color: ${tooltipText};">${d.value.toLocaleString()}</strong></div>`)
+          .style("opacity", 1)
+          .style("left", (event.pageX + 10) + "px")
+          .style("top", (event.pageY - 10) + "px");
+      }
+    });
+    
+    overlay.on("mouseleave", function() {
+      verticalLine.style("opacity", 0);
+      hoverCircle.style("opacity", 0);
+      tooltip.style("opacity", 0);
+    });
+    
+    console.log("Chart rendered successfully");
+    
+  } catch (error) {
+    console.error("Failed to load log count chart:", error);
+    const container = document.querySelector(".chart-container");
+    if (container) {
+      container.innerHTML = `<p class="empty">Error loading chart: ${error.message}</p>`;
+    }
+  }
+};
 
 // Initialize Dashboard
-bootstrap();
+const bootstrap = async () => {
+  try {
+    await Promise.all([
+      loadHourlyData(),
+      loadDailyData(),
+      loadErrorInsights(),
+      loadLogCountChart()
+    ]);
+  } catch (error) {
+    console.error("Bootstrap failed:", error);
+    showError();
+  }
+};
+
+// Wait for DOM and D3 to be ready
+const initDashboard = () => {
+  // Check if D3 is available
+  if (typeof d3 === 'undefined' && typeof window.d3 === 'undefined') {
+    // Wait a bit and try again
+    setTimeout(initDashboard, 100);
+    return;
+  }
+  bootstrap();
+};
+
+// Wait for DOM to be ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initDashboard);
+} else {
+  initDashboard();
+}

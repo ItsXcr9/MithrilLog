@@ -46,6 +46,7 @@ class Orchestrator:
         self._tasks.append(asyncio.create_task(self._catchup_summaries()))
         self._tasks.append(asyncio.create_task(self._hourly_scheduler()))
         self._tasks.append(asyncio.create_task(self._daily_scheduler()))
+        self._tasks.append(asyncio.create_task(self._retention_cleanup()))
         self._tasks.append(asyncio.create_task(self._watchdog()))
 
     async def stop(self) -> None:
@@ -131,6 +132,61 @@ class Orchestrator:
                 await asyncio.sleep(1)  # Small delay between summaries
         
         logger.info("Catchup complete")
+
+    async def _retention_cleanup(self) -> None:
+        """Periodically clean up logs older than retention_days."""
+        retention_days = self.settings.ingest.retention_days
+        bucket_dir = Path(self.settings.ingest.bucket_dir)
+        while True:
+            try:
+                # Run cleanup once per hour
+                await asyncio.sleep(3600)
+                cutoff_date = utc_now() - timedelta(days=retention_days)
+                cutoff_date = cutoff_date.astimezone(self.local_tz)
+                
+                deleted_count = 0
+                if bucket_dir.exists():
+                    for year_dir in bucket_dir.iterdir():
+                        if not year_dir.is_dir() or not year_dir.name.isdigit():
+                            continue
+                        year = int(year_dir.name)
+                        if year < cutoff_date.year:
+                            # Delete entire year directory
+                            import shutil
+                            shutil.rmtree(year_dir)
+                            deleted_count += 1
+                            logger.info("Deleted year directory: %s", year_dir)
+                            continue
+                        
+                        for month_dir in year_dir.iterdir():
+                            if not month_dir.is_dir() or not month_dir.name.isdigit():
+                                continue
+                            month = int(month_dir.name)
+                            if year == cutoff_date.year and month < cutoff_date.month:
+                                import shutil
+                                shutil.rmtree(month_dir)
+                                deleted_count += 1
+                                logger.info("Deleted month directory: %s", month_dir)
+                                continue
+                            
+                            for day_dir in month_dir.iterdir():
+                                if not day_dir.is_dir() or not day_dir.name.isdigit():
+                                    continue
+                                day = int(day_dir.name)
+                                try:
+                                    dir_date = datetime(year, month, day, tzinfo=self.local_tz)
+                                    if dir_date < cutoff_date:
+                                        import shutil
+                                        shutil.rmtree(day_dir)
+                                        deleted_count += 1
+                                        logger.debug("Deleted day directory: %s", day_dir)
+                                except ValueError:
+                                    continue
+                
+                if deleted_count > 0:
+                    logger.info("Retention cleanup: deleted %d directories older than %d days", deleted_count, retention_days)
+            except Exception:  # noqa: BLE001
+                logger.exception("Retention cleanup failed")
 
     async def _watchdog(self) -> None:
         while True:

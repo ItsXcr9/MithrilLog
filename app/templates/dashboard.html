@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>MithrilLog Summaries</title>
     <link rel="stylesheet" href="/static/styles.css" />
+    <script src="https://cdn.jsdelivr.net/npm/d3@7.8.5/dist/d3.min.js" onerror="console.error('Failed to load D3 from jsdelivr, trying unpkg...'); this.onerror=null; this.src='https://unpkg.com/d3@7.8.5/dist/d3.min.js';"></script>
   </head>
   <body>
     <header class="top-bar glass">
@@ -49,6 +50,18 @@
           </div>
         </div>
         <div id="hourly-list" class="card-grid"></div>
+      </section>
+
+      <section class="chart-panel glass">
+        <div class="section-header">
+          <h2>Log Volume (30 Days)</h2>
+          <div class="controls">
+            <button id="chart-refresh">Refresh</button>
+          </div>
+        </div>
+        <div class="chart-container">
+          <svg id="log-count-chart"></svg>
+        </div>
       </section>
 
       <section class="error-monitor glass" id="error-monitor">
@@ -117,6 +130,6 @@
       </article>
     </template>
 
-    <script src="/static/dashboard.js"></script>
+    <script src="/static/dashboard.js" defer></script>
   </body>
 </html>
