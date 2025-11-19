@@ -160,6 +160,56 @@ def _extract_structured_timestamp(raw: str) -> datetime | None:
     return parsed.astimezone(timezone.utc)
 
 
+def _looks_like_iso_token(token: str) -> bool:
+    """Return True if token resembles an ISO timestamp fragment."""
+    return bool(ISO_TIMESTAMP_RE.fullmatch(token))
+
+
+def _select_app_token(tag: str, host: str) -> str:
+    """
+    Given the raw tag portion before the ':' delimiter, attempt to extract a usable app name.
+    Handles RFC3164 and RFC5424 style tags where additional fields (version, ISO timestamp,
+    hostname, etc.) may precede the actual app token.
+    """
+    tag = tag.strip()
+    if not tag:
+        return "-"
+    tokens = tag.split()
+    candidate = None
+    for token in reversed(tokens):
+        tok = token.strip()
+        if not tok:
+            continue
+        # Skip obvious non-app tokens
+        if tok == host or tok == "-":
+            continue
+        if tok.isdigit() or _looks_like_iso_token(tok):
+            continue
+        if not any(ch.isalpha() for ch in tok) and "[" not in tok and "]" not in tok:
+            continue
+        candidate = tok
+        break
+    if candidate:
+        return candidate
+    return tokens[-1]
+
+
+def _split_tag_and_message(message_part: str) -> tuple[str, str]:
+    """
+    Split the portion after the syslog header into (tag, message) using heuristics that favor
+    the first colon followed by whitespace (to avoid timestamps like HH:MM:SS).
+    Returns (tag, remainder_without_tag).
+    """
+    for delimiter in (": ", ":\t"):
+        idx = message_part.find(delimiter)
+        if idx != -1:
+            return message_part[:idx], message_part[idx + len(delimiter) :]
+    idx = message_part.find(":")
+    if idx == -1:
+        return "", message_part
+    return message_part[:idx], message_part[idx + 1 :]
+
+
 def parse_syslog(payload: bytes, addr: str, transport: str, syslog_tz: Optional[ZoneInfo] = None) -> LogEvent:
     """
     Parse syslog message. If syslog_tz is provided, syslog timestamps without timezone
@@ -201,9 +251,11 @@ def parse_syslog(payload: bytes, addr: str, transport: str, syslog_tz: Optional[
             else:
                 message_part = ""
             if ":" in message_part:
-                app_part, message_part = message_part.split(":", 1)
-                app = app_part.strip()
-                message = message_part.strip()
+                tag_part, remainder = _split_tag_and_message(message_part)
+                candidate = _select_app_token(tag_part, host)
+                if candidate:
+                    app = candidate
+                message = remainder.strip()
             else:
                 message = message_part.strip()
         except ValueError:
