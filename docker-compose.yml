@@ -33,6 +33,7 @@ services:
       - ./models:/app/models
       - ./app/static:/app/app/static
       - ./app/templates:/app/app/templates
+      - ./app/main.py:/app/app/main.py
       - /etc/localtime:/etc/localtime:ro
       - /etc/timezone:/etc/timezone:ro
     environment:

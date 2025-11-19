@@ -41,6 +41,7 @@ class IngestConfig(BaseModel):
     max_bucket_minutes: int = 1
     bloom_error_rate: float = 1e-4
     reservoir_size: int = 200
+    retention_days: int = 30
 
 
 class SummaryConfig(BaseModel):

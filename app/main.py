@@ -9,10 +9,20 @@ from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from fastapi.middleware.cors import CORSMiddleware
 
 from mithrillog.config import Settings, default_settings
 
 app = FastAPI(title="MithrilLog API")
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 static_dir = Path(__file__).parent / "static"
@@ -124,4 +134,79 @@ def daily_summaries(limit: int = Query(7, ge=1, le=14)) -> dict:
 @app.get("/insights/errors")
 def error_insights(limit: int = Query(8, ge=1, le=48)) -> dict:
     return {"items": _error_insights(limit)}
+
+
+def _get_hourly_log_counts(days: int = 30) -> List[dict]:
+    """Get hourly log counts for the past N days from hourly summary reports."""
+    settings = default_settings
+    report_dir = Path(settings.summary.report_dir) / "hourly"
+    if not report_dir.exists():
+        return []
+    
+    from datetime import datetime, timedelta, timezone
+    from mithrillog.utils.time import get_timezone
+    
+    local_tz = get_timezone(settings.timezone)
+    cutoff = datetime.now(local_tz) - timedelta(days=days)
+    
+    # Collect all hourly reports with their counts
+    hourly_data: dict[str, int] = {}
+    
+    # Walk through report directory structure: YYYY/MM/DD/HH.json
+    for year_dir in report_dir.iterdir():
+        if not year_dir.is_dir() or not year_dir.name.isdigit():
+            continue
+        year = int(year_dir.name)
+        
+        for month_dir in year_dir.iterdir():
+            if not month_dir.is_dir() or not month_dir.name.isdigit():
+                continue
+            month = int(month_dir.name)
+            
+            for day_dir in month_dir.iterdir():
+                if not day_dir.is_dir() or not day_dir.name.isdigit():
+                    continue
+                day = int(day_dir.name)
+                
+                try:
+                    dir_date = datetime(year, month, day, tzinfo=local_tz)
+                    if dir_date < cutoff:
+                        continue
+                except ValueError:
+                    continue
+                
+                for report_file in day_dir.glob("*.json"):
+                    try:
+                        hour_str = report_file.stem
+                        if not hour_str.isdigit():
+                            continue
+                        hour = int(hour_str)
+                        
+                        hour_time = datetime(year, month, day, hour, tzinfo=local_tz)
+                        if hour_time < cutoff:
+                            continue
+                        
+                        with report_file.open("r", encoding="utf-8") as f:
+                            report = json.load(f)
+                            stats = report.get("stats", {})
+                            total_events = stats.get("total_events", 0)
+                            if total_events > 0:
+                                # Use ISO format for consistency
+                                time_key = hour_time.isoformat()
+                                hourly_data[time_key] = total_events
+                    except (ValueError, json.JSONDecodeError, KeyError):
+                        continue
+    
+    # Convert to sorted list
+    result = [
+        {"timestamp": ts, "count": count}
+        for ts, count in sorted(hourly_data.items())
+    ]
+    return result
+
+
+@app.get("/metrics/log-counts")
+def log_counts(days: int = Query(30, ge=1, le=90)) -> dict:
+    """Get hourly log counts for the past N days."""
+    return {"items": _get_hourly_log_counts(days)}
 
