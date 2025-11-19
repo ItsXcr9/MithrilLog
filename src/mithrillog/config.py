@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 
 
 class LLMConfig(BaseModel):
-    backend: Literal["llama_cpp", "openai"] = "llama_cpp"
+    backend: Literal["llama_cpp", "local", "openai", "gemini"] = "llama_cpp"
     model_path: Optional[Path] = Field(
         default=None,
         description="Path to GGUF file for llama-cpp backend.",
@@ -17,6 +17,20 @@ class LLMConfig(BaseModel):
     temperature: float = 0.2
     top_p: float = 0.9
     max_tokens: int = 1024
+    openai_api_key: Optional[str] = Field(
+        default=None,
+        description="API key for OpenAI/ChatGPT requests.",
+    )
+    openai_model: str = "gpt-4o-mini"
+    openai_base_url: Optional[str] = Field(
+        default=None,
+        description="Optional custom base URL for OpenAI-compatible endpoints.",
+    )
+    gemini_api_key: Optional[str] = Field(
+        default=None,
+        description="API key for Google Gemini requests.",
+    )
+    gemini_model: str = "gemini-1.5-flash"
 
 
 class IngestConfig(BaseModel):

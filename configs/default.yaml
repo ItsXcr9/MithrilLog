@@ -1,12 +1,21 @@
 environment: dev
 timezone: Asia/Tehran
 llm:
-  backend: llama_cpp
+  # Options: llama_cpp (local GGUF), local (alias), openai, gemini
+  backend: gemini
+  # Path to GGUF file when using llama_cpp/local backend
   model_path: ./models/llama4-dolphin-8B.Q3_K_M.gguf
   context_length: 8192
   temperature: 0.2
   top_p: 0.9
   max_tokens: 1024
+  # Set when backend == openai (ChatGPT-compatible)
+  openai_api_key: null
+  openai_model: gpt-4o-mini
+  openai_base_url: null
+  # Set when backend == gemini
+  gemini_api_key: AIzaSyBPVfd9gaxGvc0FWZzcruZghvWa7MCTcJQ
+  gemini_model: gemini-2.5-flash-lite
 ingest:
   host: 0.0.0.0
   udp_port: 5514
@@ -27,4 +36,3 @@ prompts:
   daily: ./prompts/daily_summary.txt
   anomaly: ./prompts/anomaly_report.txt
   highlight_analysis: ./prompts/highlight_analysis.txt
-
