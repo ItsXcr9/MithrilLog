@@ -128,7 +128,7 @@ const renderStats = (stats) => {
     .slice(0, 3)
     .map(([name, count]) => `<strong>${name}:</strong> ${count}`)
     .join(" • ");
-  const containers = Object.entries(stats.top_apps || {})
+  const topAppsList = Object.entries(stats.top_apps || {})
     .slice(0, 3)
     .map(([name, count]) => `<strong>${name}:</strong> ${count}`)
     .join(" • ");
@@ -138,7 +138,7 @@ const renderStats = (stats) => {
     <p><strong>Unique Events:</strong> ${stats.unique_events?.toLocaleString() ?? "—"}</p>
     <p><strong>Error Count:</strong> ${errorCount.toLocaleString()}</p>
     <p><strong>Top Hosts:</strong> ${hosts || "—"}</p>
-    <p><strong>Container Tags:</strong> ${containers || "—"}</p>
+    <p><strong>Top Apps:</strong> ${topAppsList || "—"}</p>
   `;
 };
 
@@ -284,11 +284,11 @@ const renderFocus = () => {
         <strong>${topHost ? `${topHost[0]}: ${topHost[1]}` : "—"}</strong>
       </div>
       <div>
-        <span>Container Tags</span>
+        <span>Top App</span>
         <strong>${topApp ? `${formatContainerTag(topApp[0])}: ${topApp[1]}` : "—"}</strong>
       </div>
     </div>
-    <div class="focus-summary">${summaryHtml}</div>
+    <!-- <div class="focus-summary">${summaryHtml}</div> -->
     <div class="ai-highlights">
       <h3>AI-Powered Analysis</h3>
       <div>${highlightAnalysis}</div>
