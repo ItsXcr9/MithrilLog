@@ -163,7 +163,7 @@ Switch to TCP by changing `udp()` to `tcp()` and adjusting the port to `5614`.
 ## Configuration
 
 - `configs/default.yaml` controls listener ports, Bloom filter targets, reservoir size, schedule times, and prompt paths.
-- Swap LLM implementations by editing `llm.backend` (`llama_cpp` vs `openai`). For remote inference, implement another branch in `LLMClient`.
+- Swap LLM implementations by editing `llm.backend` (`llama_cpp`/`local`, `openai`, `gemini`) and supplying the matching API keys or model path.
 - Prompt text uses `{placeholder}` tokens; keep them in sync with variables passed by summarizers.
 
 ## Operations

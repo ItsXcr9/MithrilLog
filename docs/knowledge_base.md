@@ -17,7 +17,7 @@
 
 | Section | Keys | Notes |
 | --- | --- | --- |
-| `LLMConfig` | `backend`, `model_path`, `context_length`, `temperature`, `top_p`, `max_tokens` | Supports `llama_cpp` (local) or `openai`; context budget enforcement happens in `LLMClient.generate`. |
+| `LLMConfig` | `backend`, `model_path`, `context_length`, `temperature`, `top_p`, `max_tokens`, `openai_*`, `gemini_*` | Choose between local GGUF (`llama_cpp`/`local`), OpenAI/ChatGPT, or Google Gemini backends. Context budget enforcement happens in `LLMClient.generate`. |
 | `IngestConfig` | `host`, `udp_port`, `tcp_port`, `bucket_dir`, `max_bucket_minutes`, `bloom_error_rate`, `reservoir_size` | Drives listener bindings, storage root, dedupe false-positive target, sampler size. |
 | `SummaryConfig` | `hourly_at_minute`, `daily_at_hour`, `daily_at_minute`, `report_dir` | Controls scheduler cadence and report directory roots. |
 | `PromptsConfig` | `hourly`, `daily`, `anomaly` | Files in `prompts/` with `--system--` / `--user--` markers. |

@@ -23,6 +23,81 @@ let focusedItem = null;
 let focusedKind = "hourly";
 
 // Utility Functions
+const escapeHtml = (str = "") =>
+  str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
+const formatInlineMarkdown = (text = "") => {
+  let html = escapeHtml(text);
+  html = html.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+  html = html.replace(/`([^`]+?)`/g, "<code>$1</code>");
+  return html;
+};
+
+const renderMarkdown = (text = "", fallback = "No content available.") => {
+  const content = (text || "").trim();
+  if (!content) {
+    return `<p>${fallback}</p>`;
+  }
+
+  const lines = content.split(/\r?\n/);
+  let html = "";
+  let inList = false;
+
+  const closeList = () => {
+    if (inList) {
+      html += "</ul>";
+      inList = false;
+    }
+  };
+
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (!line) {
+      closeList();
+      continue;
+    }
+
+    if (/^---+$/.test(line)) {
+      closeList();
+      html += "<hr />";
+      continue;
+    }
+
+    if (line.startsWith("### ")) {
+      closeList();
+      html += `<h4>${formatInlineMarkdown(line.slice(4))}</h4>`;
+      continue;
+    }
+
+    if (line.startsWith("## ")) {
+      closeList();
+      html += `<h3>${formatInlineMarkdown(line.slice(3))}</h3>`;
+      continue;
+    }
+
+    if (/^[-*]\s+/.test(line)) {
+      if (!inList) {
+        html += "<ul>";
+        inList = true;
+      }
+      const bullet = line.replace(/^[-*]\s+/, "");
+      html += `<li>${formatInlineMarkdown(bullet)}</li>`;
+      continue;
+    }
+
+    closeList();
+    html += `<p>${formatInlineMarkdown(line)}</p>`;
+  }
+
+  closeList();
+  return html;
+};
+
 const formatDateRange = (start, end) => {
   try {
     const startDate = new Date(start);
@@ -114,10 +189,10 @@ const buildCard = (item, kind, options = {}) => {
   }
   
   metaEl.textContent = `${item?.stats?.total_events?.toLocaleString() ?? 0} events`;
-  summaryEl.textContent = item.summary || "No summary available.";
+  summaryEl.innerHTML = renderMarkdown(item.summary, "No summary available.");
   statsEl.innerHTML = renderStats(item.stats);
   highlightsEl.innerHTML = renderHighlights(item.highlights);
-  anomaliesEl.textContent = (item.anomalies || "").trim() || "No anomalies reported.";
+  anomaliesEl.innerHTML = renderMarkdown(item.anomalies || "", "No anomalies reported.");
 
   if (options.selectable) {
     card.classList.add("selectable-card");
@@ -180,8 +255,11 @@ const renderFocus = () => {
     `)
     .join("");
   
-  const highlightAnalysis = (item.highlight_analysis || "").trim() 
-    || "AI-powered analysis will appear here after processing. Ensure the analyzer job has completed for this time window.";
+  const highlightAnalysis = renderMarkdown(
+    item.highlight_analysis || "",
+    "AI-powered analysis will appear here after processing. Ensure the analyzer job has completed for this time window.",
+  );
+  const summaryHtml = renderMarkdown(item.summary || "", "No summary available.");
 
   focusedPanel.innerHTML = `
     <div class="focus-header">
@@ -210,10 +288,10 @@ const renderFocus = () => {
         <strong>${topApp ? `${formatContainerTag(topApp[0])}: ${topApp[1]}` : "—"}</strong>
       </div>
     </div>
-    <p class="focus-summary">${item.summary || "No summary available."}</p>
+    <div class="focus-summary">${summaryHtml}</div>
     <div class="ai-highlights">
       <h3>AI-Powered Analysis</h3>
-      <p>${highlightAnalysis}</p>
+      <div>${highlightAnalysis}</div>
     </div>
     <div class="focus-highlight-wrap">
       ${highlightHtml || '<p class="empty">No highlights captured for this period.</p>'}
