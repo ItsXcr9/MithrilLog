@@ -239,7 +239,8 @@ class IngestServer:
     loop: Optional[AbstractEventLoop] = None
 
     def __post_init__(self) -> None:
-        self._queue: asyncio.Queue[tuple[bytes, str, str]] = asyncio.Queue(maxsize=50_000)
+        # Large queue to ensure no logs are dropped - store all logs first, deduplicate later
+        self._queue: asyncio.Queue[tuple[bytes, str, str]] = asyncio.Queue(maxsize=1_000_000)
         self._udp_transport: Optional[asyncio.DatagramTransport] = None
         self._tcp_server: Optional[asyncio.AbstractServer] = None
         self._consumer_task: Optional[asyncio.Task[None]] = None
@@ -295,21 +296,39 @@ class IngestServer:
                 await self._consumer_task
 
     async def _start_udp(self) -> None:
+        import logging
+        logger = logging.getLogger("mithrillog.ingest.udp")
+        
         class _Protocol(asyncio.DatagramProtocol):
-            def __init__(self, queue: asyncio.Queue[tuple[bytes, str, str]]) -> None:
+            def __init__(self, queue: asyncio.Queue[tuple[bytes, str, str]], loop: AbstractEventLoop) -> None:
                 self.queue = queue
+                self.loop = loop
+                self._put_tasks = set()
 
             def datagram_received(self, data: bytes, addr) -> None:  # type: ignore[override]
                 host, _port = addr
+                # Try non-blocking first (queue is 1M, should rarely fail)
                 try:
                     self.queue.put_nowait((data, host, "udp"))
                 except asyncio.QueueFull:
-                    pass
+                    # Queue full - schedule async put to avoid blocking protocol handler
+                    # This should be extremely rare with 1M queue size
+                    task_ref = [None]  # Use list for mutable reference
+                    async def put_log():
+                        try:
+                            await self.queue.put((data, host, "udp"))
+                        finally:
+                            if task_ref[0]:
+                                self._put_tasks.discard(task_ref[0])
+                    task = self.loop.create_task(put_log())
+                    task_ref[0] = task
+                    self._put_tasks.add(task)
+                    logger.warning(f"UDP queue full, using async put (queue size: {self.queue.qsize()})")
 
         if self.loop is None:
             raise RuntimeError("Event loop not initialized before starting UDP server")
         transport, _ = await self.loop.create_datagram_endpoint(  # type: ignore[arg-type]
-            lambda: _Protocol(self._queue),
+            lambda: _Protocol(self._queue, self.loop),
             local_addr=(self.config.host, self.config.udp_port),
         )
         self._udp_transport = transport
@@ -323,10 +342,8 @@ class IngestServer:
                     line = await reader.readline()
                     if not line:
                         break
-                    try:
-                        self._queue.put_nowait((line.strip(), host, "tcp"))
-                    except asyncio.QueueFull:
-                        break
+                    # Use blocking put to ensure no logs are dropped
+                    await self._queue.put((line.strip(), host, "tcp"))
             finally:
                 writer.close()
                 await writer.wait_closed()
@@ -356,14 +373,22 @@ class IngestServer:
             self.sampler.reset()
             self._current_bucket = bucket_time
             self._reset_bucket_stats()
+        
         pattern = event.pattern_id()
         self._update_bucket_stats(event, pattern)
+        
+        # Strong deduplication: check if duplicate BEFORE storing
         if self.deduper.seen(event.dedupe_key()):
+            # Duplicate detected - only count it, don't store
             self.sampler.register_duplicate(pattern)
             return
+        
+        # Unique log - store it
         record = event.model_dump()
         record["pattern_id"] = pattern
         record["occurrences"] = self.sampler.totals().get(pattern, 0) + 1
+        self.sampler.add(event.sample_key(), pattern, record)
+        
         # Use server receive time for bucket path, but keep original log timestamp in record
         path = self.journal.append(record, bucket_time=server_tz)
         self._last_bucket_path = str(path)
