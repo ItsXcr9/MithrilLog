@@ -1,10 +1,72 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
-from typing import Any, Literal, Optional
+from typing import Any, Iterable, Literal, Optional
 
 import yaml
 from pydantic import BaseModel, Field
+
+
+_LOADED_ENV_PATHS: set[Path] = set()
+
+
+def _load_env_file(path: Path) -> None:
+    try:
+        resolved = path.expanduser().resolve()
+    except FileNotFoundError:
+        return
+    if resolved in _LOADED_ENV_PATHS or not resolved.is_file():
+        return
+    with resolved.open("r", encoding="utf-8") as handle:
+        for raw_line in handle:
+            line = raw_line.strip()
+            if not line or line.startswith("#"):
+                continue
+            if line.startswith("export "):
+                line = line[7:].lstrip()
+            if "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            key = key.strip()
+            if not key:
+                continue
+            value = value.strip()
+            if value and len(value) >= 2 and value[0] == value[-1] and value[0] in {'"', "'"}:
+                value = value[1:-1]
+            os.environ.setdefault(key, value)
+    _LOADED_ENV_PATHS.add(resolved)
+
+
+def _ensure_env_loaded(extra_candidates: Iterable[Path] | None = None) -> None:
+    candidates: list[Path] = []
+    env_override = os.getenv("MITHRILLOG_ENV_FILE")
+    if env_override:
+        candidates.append(Path(env_override))
+    project_root = Path(__file__).resolve().parent.parent.parent
+    candidates.append(project_root / ".env")
+    candidates.append(Path.cwd() / ".env")
+    if extra_candidates:
+        candidates.extend(extra_candidates)
+    for candidate in candidates:
+        _load_env_file(candidate)
+
+
+def _apply_llm_env_overrides(llm_config: "LLMConfig") -> None:
+    env_overrides = {
+        "OPENAI_API_KEY": "openai_api_key",
+        "OPENAI_MODEL": "openai_model",
+        "OPENAI_BASE_URL": "openai_base_url",
+        "GEMINI_API_KEY": "gemini_api_key",
+        "GEMINI_MODEL": "gemini_model",
+    }
+    for env_name, attr in env_overrides.items():
+        value = os.getenv(env_name)
+        if not value:
+            continue
+        if attr in {"gemini_model", "openai_model"} and not value.strip():
+            continue
+        setattr(llm_config, attr, value)
 
 
 class LLMConfig(BaseModel):
@@ -74,10 +136,19 @@ class Settings(BaseModel):
     @classmethod
     def load(cls, path: Path | str) -> "Settings":
         config_path = Path(path).expanduser().resolve()
+        extra_env_files = [
+            config_path.parent / ".env",
+            config_path.parent.parent / ".env" if config_path.parent.parent != config_path.parent else None,
+        ]
+        _ensure_env_loaded(path for path in extra_env_files if path is not None)
         with config_path.open("r", encoding="utf-8") as handle:
             data: dict[str, Any] = yaml.safe_load(handle) or {}
-        return cls.model_validate(data)
+        settings = cls.model_validate(data)
+        _apply_llm_env_overrides(settings.llm)
+        return settings
 
 
+_ensure_env_loaded(None)
 default_settings = Settings()
+_apply_llm_env_overrides(default_settings.llm)
 

@@ -96,10 +96,21 @@ class LLMClient:
         rendered = template.render(variables)
         system_prompt = rendered["system"]
         user_prompt = rendered["user"]
-        # Conservative estimate: ~4 chars per token, leave room for system prompt and response
-        # Reserve ~200 tokens for system + response, so max input tokens = context_length - 200 - max_tokens
-        max_input_tokens = self.config.context_length - 200 - self.config.max_tokens
-        max_chars = max_input_tokens * 3  # Conservative: 3 chars per token
+        context_limit = max(self.config.context_length, 1024)
+        reserved_tokens = 200  # system prompt + safety margin
+        min_prompt_tokens = 512
+        raw_max_tokens = max(1, self.config.max_tokens)
+        max_completion_cap = max(256, context_limit - reserved_tokens - min_prompt_tokens)
+        effective_max_tokens = min(raw_max_tokens, max_completion_cap)
+        if effective_max_tokens < raw_max_tokens:
+            logger.debug(
+                "Clamped max_tokens from %s to %s to fit context window (%s tokens)",
+                raw_max_tokens,
+                effective_max_tokens,
+                context_limit,
+            )
+        prompt_budget = max(min_prompt_tokens, context_limit - reserved_tokens - effective_max_tokens)
+        max_chars = prompt_budget * 3  # Conservative: 3 chars per token
         if len(user_prompt) > max_chars:
             user_prompt = (
                 user_prompt[: max_chars - 50]
@@ -109,16 +120,16 @@ class LLMClient:
             system_prompt = system_prompt[:200] + "..."
         try:
             if self._backend == "llama_cpp" and self._llama is not None:
-                return self._generate_llama(system_prompt, user_prompt)
+                return self._generate_llama(system_prompt, user_prompt, effective_max_tokens)
             if self._backend == "openai" and self._openai_client is not None:
-                return self._generate_openai(system_prompt, user_prompt)
+                return self._generate_openai(system_prompt, user_prompt, effective_max_tokens)
             if self._backend == "gemini" and self._gemini_model is not None:
-                return self._generate_gemini(system_prompt, user_prompt)
+                return self._generate_gemini(system_prompt, user_prompt, effective_max_tokens)
         except Exception:
             logger.exception("LLM invocation failed; falling back to deterministic summary")
         return self._fallback_summary(variables)
 
-    def _generate_llama(self, system_prompt: str, user_prompt: str) -> str:
+    def _generate_llama(self, system_prompt: str, user_prompt: str, max_tokens: int) -> str:
         response = self._llama.create_chat_completion(  # type: ignore[union-attr]
             messages=[
                 {"role": "system", "content": system_prompt},
@@ -126,21 +137,58 @@ class LLMClient:
             ],
             temperature=self.config.temperature,
             top_p=self.config.top_p,
-            max_tokens=self.config.max_tokens,
+            max_tokens=max_tokens,
         )
         return response["choices"][0]["message"]["content"].strip()
 
-    def _generate_openai(self, system_prompt: str, user_prompt: str) -> str:
-        response = self._openai_client.chat.completions.create(  # type: ignore[union-attr]
-            model=self.config.openai_model,
-            messages=[
+    def _generate_openai(self, system_prompt: str, user_prompt: str, max_tokens: int) -> str:
+        request_kwargs: Dict[str, Any] = {
+            "model": self.config.openai_model,
+            "messages": [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
             ],
-            temperature=self.config.temperature,
-            top_p=self.config.top_p,
-            max_tokens=self.config.max_tokens,
-        )
+            "temperature": self.config.temperature,
+            "top_p": self.config.top_p,
+        }
+        # gpt-5 class models renamed `max_tokens` to `max_completion_tokens`.
+        # Call once with the legacy name, then retry with the new name if needed.
+        request_kwargs["max_tokens"] = max_tokens
+        response = self._call_openai_with_token_retry(request_kwargs, max_tokens)
+        return self._extract_openai_text(response)
+
+    def _call_openai_with_token_retry(self, request_kwargs: Dict[str, Any], max_tokens: int) -> Any:
+        bad_request_error = None
+        try:
+            from openai import BadRequestError as _BadRequestError  # type: ignore
+        except Exception:  # pragma: no cover - optional dependency
+            _BadRequestError = None  # type: ignore
+        if _BadRequestError:
+            bad_request_error = _BadRequestError
+        while True:
+            try:
+                return self._openai_client.chat.completions.create(  # type: ignore[union-attr]
+                    **request_kwargs,
+                )
+            except Exception as exc:
+                if not (bad_request_error and isinstance(exc, bad_request_error)):
+                    raise
+                message = str(getattr(exc, "message", exc))
+                handled = False
+                if "max_tokens" in message and "max_completion_tokens" in message and "max_tokens" in request_kwargs:
+                    request_kwargs.pop("max_tokens", None)
+                    request_kwargs["max_completion_tokens"] = max_tokens
+                    handled = True
+                elif "temperature" in message and "support" in message and "temperature" in request_kwargs:
+                    request_kwargs.pop("temperature", None)
+                    handled = True
+                elif "top_p" in message and "support" in message and "top_p" in request_kwargs:
+                    request_kwargs.pop("top_p", None)
+                    handled = True
+                if not handled:
+                    raise
+
+    def _extract_openai_text(self, response: Any) -> str:
         choice = response.choices[0]
         content = choice.message.content
         if isinstance(content, list):
@@ -149,12 +197,12 @@ class LLMClient:
             text = content or ""
         return text.strip()
 
-    def _generate_gemini(self, system_prompt: str, user_prompt: str) -> str:
+    def _generate_gemini(self, system_prompt: str, user_prompt: str, max_tokens: int) -> str:
         prompt = f"{system_prompt}\n\n{user_prompt}"
         generation_config = {
             "temperature": self.config.temperature,
             "top_p": self.config.top_p,
-            "max_output_tokens": self.config.max_tokens,
+            "max_output_tokens": max_tokens,
         }
         try:
             response = self._gemini_model.generate_content(  # type: ignore[union-attr]

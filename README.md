@@ -166,6 +166,18 @@ Switch to TCP by changing `udp()` to `tcp()` and adjusting the port to `5614`.
 - Swap LLM implementations by editing `llm.backend` (`llama_cpp`/`local`, `openai`, `gemini`) and supplying the matching API keys or model path.
 - Prompt text uses `{placeholder}` tokens; keep them in sync with variables passed by summarizers.
 
+### Environment secrets
+
+Keep API keys outside of tracked config files by creating a `.env` file in the project root (or point `MITHRILLOG_ENV_FILE` to another path). Any variables defined there are loaded automatically at startup; for example:
+
+```
+OPENAI_API_KEY=sk-...
+OPENAI_MODEL=gpt-4o-mini
+GEMINI_API_KEY=...
+```
+
+Environment values override the matching entries under `llm` in YAML configs, so you can keep the current profile while activating OpenAI just by setting `OPENAI_API_KEY`.
+
 ## Operations
 
 - Daemonize via systemd: point `ExecStart` to `scripts/run_orchestrator.py --config /etc/mithrillog.yaml`.

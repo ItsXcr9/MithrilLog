@@ -8,12 +8,14 @@ llm:
   context_length: 8192
   temperature: 0.2
   top_p: 0.9
-  max_tokens: 1024
+  max_tokens: 100000
   # Set when backend == openai (ChatGPT-compatible)
+  # When left null, OPENAI_API_KEY from .env (if present) is used
   openai_api_key: null
-  openai_model: gpt-4o-mini
+  openai_model: gpt-5-mini
   openai_base_url: null
   # Set when backend == gemini
+  # When left null, GEMINI_API_KEY from .env (if present) is used
   gemini_api_key: AIzaSyBPVfd9gaxGvc0FWZzcruZghvWa7MCTcJQ
   gemini_model: gemini-2.5-flash-lite
 ingest:
