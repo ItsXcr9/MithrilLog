@@ -3,6 +3,7 @@
 const focusedPanel = document.getElementById("focused-panel");
 const hourlyList = document.getElementById("hourly-list");
 const dailyContainer = document.getElementById("daily-container");
+const trendFeed = document.getElementById("trend-feed");
 const errorFeed = document.getElementById("error-feed");
 const hourlyHistory = document.getElementById("hourly-history");
 const hourlyRefresh = document.getElementById("hourly-refresh");
@@ -11,6 +12,8 @@ const hourlyNext = document.getElementById("hourly-next");
 const hourlyPageIndicator = document.getElementById("hourly-page-indicator");
 const dailyLimit = document.getElementById("daily-limit");
 const dailyRefresh = document.getElementById("daily-refresh");
+const trendLimit = document.getElementById("trend-limit");
+const trendRefresh = document.getElementById("trend-refresh");
 const errorLimit = document.getElementById("error-limit");
 const errorRefresh = document.getElementById("error-refresh");
 const globalRefresh = document.getElementById("global-refresh");
@@ -461,6 +464,48 @@ const buildErrorCard = (item) => {
   return card;
 };
 
+const buildTrendCard = (item) => {
+  const card = document.createElement("article");
+  card.className = "card";
+  
+  const date = new Date(item.date).toLocaleDateString('en-US', {
+    timeZone: 'Asia/Tehran',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
+  
+  const newCount = item.new_count || 0;
+  const ongoingCount = item.ongoing_count || 0;
+  const resolvedCount = item.resolved_count || 0;
+  
+  card.innerHTML = `
+    <div class="card-header">
+      <h3 class="card-title">📊 Trend Analysis</h3>
+      <span class="card-meta">${date} (3-day comparison)</span>
+    </div>
+    <div class="card-summary">
+      ${renderMarkdown(item.summary, "No trend analysis available.")}
+    </div>
+    <div class="error-meta">
+      <div>
+        <h4>🆕 New Issues</h4>
+        <span class="pill severity-error">${newCount}</span>
+      </div>
+      <div>
+        <h4>🔄 Ongoing</h4>
+        <span class="pill severity-warning">${ongoingCount}</span>
+      </div>
+      <div>
+        <h4>✅ Resolved</h4>
+        <span class="pill severity-info">${resolvedCount}</span>
+      </div>
+    </div>
+  `;
+  
+  return card;
+};
+
 const setFocus = (item, kind) => {
   focusedItem = item;
   focusedKind = kind;
@@ -487,6 +532,27 @@ const loadErrorInsights = async () => {
   for (const item of items) {
     errorFeed.appendChild(buildErrorCard(item));
   }
+};
+
+const loadTrendData = async () => {
+  // Always load only 1 (latest) trend report
+  const response = await fetch(`/summaries/trend?limit=1`);
+  
+  if (!response.ok) {
+    throw new Error("Failed to load trend analysis");
+  }
+  
+  const data = await response.json();
+  trendFeed.innerHTML = "";
+  
+  if (!data.items || !data.items.length) {
+    trendFeed.innerHTML = '<div class="empty"><p>No trend analysis available yet. Trend reports are generated daily comparing the last 3 days of logs.</p></div>';
+    return;
+  }
+  
+  // Show only the latest trend report
+  const latestTrend = data.items[0];
+  trendFeed.appendChild(buildTrendCard(latestTrend));
 };
 
 const showError = () => {
@@ -529,6 +595,10 @@ hourlyNext.addEventListener("click", () => {
 
 dailyRefresh.addEventListener("click", () => loadDailyData().catch(console.error));
 dailyLimit.addEventListener("change", () => loadDailyData().catch(console.error));
+
+if (trendRefresh) {
+  trendRefresh.addEventListener("click", () => loadTrendData().catch(console.error));
+}
 
 errorRefresh.addEventListener("click", () => loadErrorInsights().catch(console.error));
 errorLimit.addEventListener("change", () => loadErrorInsights().catch(console.error));
@@ -851,6 +921,7 @@ const bootstrap = async () => {
     await Promise.all([
       loadHourlyData(),
       loadDailyData(),
+      loadTrendData(),
       loadErrorInsights(),
       loadLogCountChart()
     ]);
@@ -1034,7 +1105,7 @@ document.addEventListener("DOMContentLoaded", () => {
   initDashboard();
 }
 
-// --- Enhanced Log Search ---
+// --- Enhanced Log Search with Debouncing ---
 const searchInput = document.getElementById("search-input");
 const searchBtn = document.getElementById("search-btn");
 const searchResults = document.getElementById("search-results");
@@ -1042,60 +1113,115 @@ const searchHours = document.getElementById("search-hours");
 const searchSeverity = document.getElementById("search-severity");
 const searchStats = document.getElementById("search-stats");
 
-// Allow Enter key to trigger search
+let searchTimeout = null;
+let currentSearchController = null;
+
+// Debounced search function
+function debounceSearch() {
+  // Clear previous timeout
+  if (searchTimeout) {
+    clearTimeout(searchTimeout);
+  }
+  
+  // Cancel previous search
+  if (currentSearchController) {
+    currentSearchController.abort();
+  }
+  
+  const query = searchInput.value.trim();
+  if (query.length < 1) {
+    searchResults.innerHTML = '';
+    searchStats.innerHTML = '';
+    return;
+  }
+  
+  // Show typing indicator
+  searchStats.innerHTML = '<span class="muted">Typing...</span>';
+  
+  // Wait 300ms after user stops typing
+  searchTimeout = setTimeout(() => {
+    performSearch(query);
+  }, 300);
+}
+
+// Perform actual search
+async function performSearch(query) {
+  searchBtn.disabled = true;
+  searchBtn.textContent = "Searching...";
+  searchResults.innerHTML = '<div class="search-skeleton"><div class="skeleton-line"></div><div class="skeleton-line"></div><div class="skeleton-line"></div></div>';
+  searchStats.innerHTML = '<span class="muted">Searching logs...</span>';
+  
+  try {
+    const hours = searchHours.value;
+    const severity = searchSeverity.value;
+    const params = new URLSearchParams({
+      q: query,
+      hours: hours,
+      limit: 100
+    });
+    if (severity) {
+      params.append('severity', severity);
+    }
+    
+    // Create abort controller for this search
+    currentSearchController = new AbortController();
+    
+    const response = await fetch(`/logs/search?${params}`, {
+      signal: currentSearchController.signal
+    });
+    const data = await response.json();
+    
+    // Display stats
+    if (data.stats) {
+      const { total, searched_minutes, time_range_hours } = data.stats;
+      searchStats.innerHTML = `
+        <strong>${total}</strong> results found in <strong>${searched_minutes}</strong> log buckets 
+        (searched last <strong>${time_range_hours}h</strong>)
+      `;
+    }
+    
+    renderSearchResults(data.items);
+  } catch (error) {
+    if (error.name === 'AbortError') {
+      // Search was cancelled, ignore
+      return;
+    }
+    console.error("Search failed:", error);
+    searchResults.innerHTML = '<p class="error">Search failed. Please try again.</p>';
+  } finally {
+    searchBtn.disabled = false;
+    searchBtn.textContent = "Search";
+    currentSearchController = null;
+  }
+}
+
+// Allow Enter key to trigger search immediately
 if (searchInput) {
   searchInput.addEventListener("keypress", (e) => {
     if (e.key === "Enter") {
-      searchBtn.click();
+      e.preventDefault();
+      if (searchTimeout) {
+        clearTimeout(searchTimeout);
+      }
+      const query = searchInput.value.trim();
+      if (query.length >= 1) {
+        performSearch(query);
+      }
     }
   });
+  
+  // Debounce on input
+  searchInput.addEventListener("input", debounceSearch);
 }
 
 if (searchBtn) {
-  searchBtn.addEventListener("click", async () => {
+  searchBtn.addEventListener("click", () => {
     const query = searchInput.value.trim();
     if (query.length < 1) {
       alert("Please enter a search term.");
       return;
     }
-    
-    searchBtn.disabled = true;
-    searchBtn.textContent = "Searching...";
-    searchResults.innerHTML = '<p class="muted">Searching logs...</p>';
-    searchStats.innerHTML = '';
-    
-    try {
-      const hours = searchHours.value;
-      const severity = searchSeverity.value;
-      const params = new URLSearchParams({
-        q: query,
-        hours: hours,
-        limit: 100
-      });
-      if (severity) {
-        params.append('severity', severity);
-      }
-      
-      const response = await fetch(`/logs/search?${params}`);
-      const data = await response.json();
-      
-      // Display stats
-      if (data.stats) {
-        const { total, searched_minutes, time_range_hours } = data.stats;
-        searchStats.innerHTML = `
-          <strong>${total}</strong> results found in <strong>${searched_minutes}</strong> log buckets 
-          (searched last <strong>${time_range_hours}h</strong>)
-        `;
-      }
-      
-      renderSearchResults(data.items);
-    } catch (error) {
-      console.error("Search failed:", error);
-      searchResults.innerHTML = '<p class="error">Search failed. Please try again.</p>';
-    } finally {
-      searchBtn.disabled = false;
-      searchBtn.textContent = "Search";
-    }
+    performSearch(query);
   });
 }
 

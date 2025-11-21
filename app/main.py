@@ -4,6 +4,9 @@ import json
 from collections import Counter
 from pathlib import Path
 from typing import List, Optional
+from datetime import datetime, timedelta
+from functools import lru_cache
+from time import time
 
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse
@@ -12,6 +15,18 @@ from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
 
 from mithrillog.config import Settings, default_settings
+
+# Try to use orjson for faster JSON parsing, fallback to standard json
+try:
+    import orjson
+    def fast_json_loads(s: str):
+        return orjson.loads(s)
+except ImportError:
+    fast_json_loads = json.loads
+
+# Simple cache with TTL
+_cache = {}
+_cache_times = {}
 
 app = FastAPI(title="MithrilLog API")
 
@@ -125,26 +140,58 @@ def health() -> dict:
 
 @app.get("/summaries/hourly")
 def hourly_summaries(limit: int = Query(5, ge=1, le=48)) -> dict:
-    return {"items": _hourly_reports(limit)}
+    cache_key = f"hourly_{limit}"
+    now = time()
+    if cache_key in _cache and (now - _cache_times.get(cache_key, 0)) < 300:
+        return _cache[cache_key]
+    
+    result = {"items": _hourly_reports(limit)}
+    _cache[cache_key] = result
+    _cache_times[cache_key] = now
+    return result
 
 
 @app.get("/summaries/daily")
 def daily_summaries(limit: int = Query(7, ge=1, le=14)) -> dict:
+    cache_key = f"daily_{limit}"
+    now = time()
+    if cache_key in _cache and (now - _cache_times.get(cache_key, 0)) < 300:
+        return _cache[cache_key]
+    
     settings = default_settings
     base = Path(settings.summary.report_dir) / "daily"
-    return {"items": _list_reports(base, limit)}
+    result = {"items": _list_reports(base, limit)}
+    _cache[cache_key] = result
+    _cache_times[cache_key] = now
+    return result
 
 
 @app.get("/summaries/trend")
 def trend_summaries(limit: int = Query(7, ge=1, le=14)) -> dict:
+    cache_key = f"trend_{limit}"
+    now = time()
+    if cache_key in _cache and (now - _cache_times.get(cache_key, 0)) < 300:
+        return _cache[cache_key]
+    
     settings = default_settings
     base = Path(settings.summary.report_dir) / "trend"
-    return {"items": _list_reports(base, limit)}
+    result = {"items": _list_reports(base, limit)}
+    _cache[cache_key] = result
+    _cache_times[cache_key] = now
+    return result
 
 
 @app.get("/insights/errors")
 def error_insights(limit: int = Query(8, ge=1, le=48)) -> dict:
-    return {"items": _error_insights(limit)}
+    cache_key = f"errors_{limit}"
+    now = time()
+    if cache_key in _cache and (now - _cache_times.get(cache_key, 0)) < 300:
+        return _cache[cache_key]
+    
+    result = {"items": _error_insights(limit)}
+    _cache[cache_key] = result
+    _cache_times[cache_key] = now
+    return result
 
 
 def _get_hourly_log_counts(days: int = 30) -> List[dict]:
@@ -154,7 +201,6 @@ def _get_hourly_log_counts(days: int = 30) -> List[dict]:
     if not report_dir.exists():
         return []
     
-    from datetime import datetime, timedelta, timezone
     from mithrillog.utils.time import get_timezone
     
     local_tz = get_timezone(settings.timezone)
@@ -163,50 +209,37 @@ def _get_hourly_log_counts(days: int = 30) -> List[dict]:
     # Collect all hourly reports with their counts
     hourly_data: dict[str, int] = {}
     
-    # Walk through report directory structure: YYYY/MM/DD/HH.json
-    for year_dir in report_dir.iterdir():
-        if not year_dir.is_dir() or not year_dir.name.isdigit():
-            continue
-        year = int(year_dir.name)
-        
-        for month_dir in year_dir.iterdir():
-            if not month_dir.is_dir() or not month_dir.name.isdigit():
+    # Use glob to find all JSON files more efficiently
+    for report_file in report_dir.glob("**/*.json"):
+        try:
+            # Parse path: YYYY/MM/DD/HH.json
+            parts = report_file.relative_to(report_dir).parts
+            if len(parts) != 4:
                 continue
-            month = int(month_dir.name)
             
-            for day_dir in month_dir.iterdir():
-                if not day_dir.is_dir() or not day_dir.name.isdigit():
-                    continue
-                day = int(day_dir.name)
-                
-                try:
-                    dir_date = datetime(year, month, day, tzinfo=local_tz)
-                    if dir_date < cutoff:
-                        continue
-                except ValueError:
-                    continue
-                
-                for report_file in day_dir.glob("*.json"):
-                    try:
-                        hour_str = report_file.stem
-                        if not hour_str.isdigit():
-                            continue
-                        hour = int(hour_str)
-                        
-                        hour_time = datetime(year, month, day, hour, tzinfo=local_tz)
-                        if hour_time < cutoff:
-                            continue
-                        
-                        with report_file.open("r", encoding="utf-8") as f:
-                            report = json.load(f)
-                            stats = report.get("stats", {})
-                            total_events = stats.get("total_events", 0)
-                            if total_events > 0:
-                                # Use ISO format for consistency
-                                time_key = hour_time.isoformat()
-                                hourly_data[time_key] = total_events
-                    except (ValueError, json.JSONDecodeError, KeyError):
-                        continue
+            year, month, day, hour_file = parts
+            hour_str = report_file.stem
+            
+            if not (year.isdigit() and month.isdigit() and day.isdigit() and hour_str.isdigit()):
+                continue
+            
+            year_int, month_int, day_int, hour_int = int(year), int(month), int(day), int(hour_str)
+            hour_time = datetime(year_int, month_int, day_int, hour_int, tzinfo=local_tz)
+            
+            # Skip if outside time range
+            if hour_time < cutoff:
+                continue
+            
+            # Only open and parse if within range
+            with report_file.open("r", encoding="utf-8") as f:
+                report = json.load(f)
+                stats = report.get("stats", {})
+                total_events = stats.get("total_events", 0)
+                if total_events > 0:
+                    time_key = hour_time.isoformat()
+                    hourly_data[time_key] = total_events
+        except (ValueError, json.JSONDecodeError, KeyError, OSError):
+            continue
     
     # Convert to sorted list
     result = [
@@ -219,7 +252,15 @@ def _get_hourly_log_counts(days: int = 30) -> List[dict]:
 @app.get("/metrics/log-counts")
 def log_counts(days: int = Query(30, ge=1, le=90)) -> dict:
     """Get hourly log counts for the past N days."""
-    return {"items": _get_hourly_log_counts(days)}
+    cache_key = f"log_counts_{days}"
+    now = time()
+    if cache_key in _cache and (now - _cache_times.get(cache_key, 0)) < 900:
+        return _cache[cache_key]
+    
+    result = {"items": _get_hourly_log_counts(days)}
+    _cache[cache_key] = result
+    _cache_times[cache_key] = now
+    return result
 
 
 # --- Log Search ---
@@ -238,7 +279,6 @@ def search_logs(
     if not bucket_dir.exists():
         return {"items": [], "stats": {"total": 0, "searched_minutes": 0}}
     
-    from datetime import datetime, timedelta
     from mithrillog.utils.time import get_timezone
     
     local_tz = get_timezone(settings.timezone)
@@ -247,6 +287,10 @@ def search_logs(
     
     results = []
     searched_minutes = 0
+    
+    # Pre-compute lowercase query and severity for efficiency
+    q_lower = q.lower()
+    severity_lower = severity.lower() if severity else None
     
     # Walk backwards from now
     current = now
@@ -262,28 +306,48 @@ def search_logs(
         if bucket_path.exists():
             searched_minutes += 1
             try:
+                # Stream file line by line instead of loading all into memory
                 with bucket_path.open("r", encoding="utf-8") as f:
-                    lines = f.readlines()
+                    # Read lines in reverse order (newest first)
+                    lines = []
+                    for line in f:
+                        lines.append(line)
+                    
                     for line in reversed(lines):
+                        if not line.strip():
+                            continue
+                        
                         try:
-                            record = json.loads(line)
+                            record = fast_json_loads(line)
                             
-                            # Filter by severity if specified
-                            if severity and record.get("severity", "").lower() != severity:
-                                continue
+                            # Filter by severity FIRST (before building searchable string)
+                            if severity_lower:
+                                record_sev = record.get("severity", "").lower()
+                                if record_sev != severity_lower:
+                                    continue
                             
-                            # Search in message, host, app, and other fields
-                            searchable = f"{record.get('message', '')} {record.get('host', '')} {record.get('app', '')} {record.get('user_id', '')}".lower()
+                            # Build searchable string only if severity matches
+                            searchable = " ".join([
+                                record.get('message', ''),
+                                record.get('host', ''),
+                                record.get('app', ''),
+                                record.get('user_id', '')
+                            ]).lower()
                             
-                            if q.lower() in searchable:
+                            # Use pre-computed lowercase query
+                            if q_lower in searchable:
                                 results.append(record)
                                 if len(results) >= limit:
                                     break
-                        except json.JSONDecodeError:
+                        except (json.JSONDecodeError, ValueError):
                             continue
             except Exception:
                 pass
         
+        # Early exit if we have enough results
+        if len(results) >= limit:
+            break
+            
         current -= timedelta(minutes=1)
     
     return {

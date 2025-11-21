@@ -157,6 +157,17 @@ class Settings(BaseModel):
 
 
 _ensure_env_loaded(None)
-default_settings = Settings()
-_apply_llm_env_overrides(default_settings.llm)
+
+# Load default settings from config file if it exists
+try:
+    from pathlib import Path
+    default_config_path = Path(__file__).parent.parent.parent / "configs" / "default.yaml"
+    if default_config_path.exists():
+        default_settings = Settings.load(default_config_path)
+    else:
+        default_settings = Settings()
+        _apply_llm_env_overrides(default_settings.llm)
+except Exception:
+    default_settings = Settings()
+    _apply_llm_env_overrides(default_settings.llm)
 
