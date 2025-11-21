@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>MithrilLog Summaries</title>
     <link rel="stylesheet" href="/static/styles.css" />
+    <link rel="stylesheet" href="/static/tail-search.css" />
     <script src="https://cdn.jsdelivr.net/npm/d3@7.8.5/dist/d3.min.js" onerror="console.error('Failed to load D3 from jsdelivr, trying unpkg...'); this.onerror=null; this.src='https://unpkg.com/d3@7.8.5/dist/d3.min.js';"></script>
   </head>
   <body>
@@ -50,6 +51,34 @@
           </div>
         </div>
         <div id="hourly-list" class="card-grid"></div>
+      </section>
+
+      <section class="search-panel glass">
+        <div class="section-header">
+          <h2>🔍 Log Search</h2>
+          <div class="controls">
+            <input type="text" id="search-input" placeholder="Search logs (IP, User ID, Error, Message)..." />
+            <select id="search-hours">
+              <option value="1">Last 1h</option>
+              <option value="6" selected>Last 6h</option>
+              <option value="24">Last 24h</option>
+            </select>
+            <select id="search-severity">
+              <option value="">All Severities</option>
+              <option value="emerg">Emergency</option>
+              <option value="alert">Alert</option>
+              <option value="crit">Critical</option>
+              <option value="err">Error</option>
+              <option value="warn">Warning</option>
+              <option value="notice">Notice</option>
+              <option value="info">Info</option>
+              <option value="debug">Debug</option>
+            </select>
+            <button id="search-btn">Search</button>
+          </div>
+        </div>
+        <div id="search-stats" class="search-stats"></div>
+        <div id="search-results" class="search-results"></div>
       </section>
 
       <section class="chart-panel glass">

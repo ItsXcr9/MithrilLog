@@ -221,3 +221,77 @@ def log_counts(days: int = Query(30, ge=1, le=90)) -> dict:
     """Get hourly log counts for the past N days."""
     return {"items": _get_hourly_log_counts(days)}
 
+
+# --- Log Search ---
+
+
+@app.get("/logs/search")
+def search_logs(
+    q: str = Query(..., min_length=1),
+    limit: int = Query(100, ge=1, le=500),
+    hours: int = Query(6, ge=1, le=24),
+    severity: str = Query("", regex="^(emerg|alert|crit|err|warn|notice|info|debug)?$")
+) -> dict:
+    """Search for logs in the last N hours matching the query string."""
+    settings = default_settings
+    bucket_dir = Path(settings.ingest.bucket_dir)
+    if not bucket_dir.exists():
+        return {"items": [], "stats": {"total": 0, "searched_minutes": 0}}
+    
+    from datetime import datetime, timedelta
+    from mithrillog.utils.time import get_timezone
+    
+    local_tz = get_timezone(settings.timezone)
+    now = datetime.now(local_tz)
+    cutoff = now - timedelta(hours=hours)
+    
+    results = []
+    searched_minutes = 0
+    
+    # Walk backwards from now
+    current = now
+    while current > cutoff and len(results) < limit:
+        year = current.strftime("%Y")
+        month = current.strftime("%m")
+        day = current.strftime("%d")
+        hour = current.strftime("%H")
+        minute = current.strftime("%M")
+        
+        bucket_path = bucket_dir / year / month / day / hour / f"{minute}.ndjson"
+        
+        if bucket_path.exists():
+            searched_minutes += 1
+            try:
+                with bucket_path.open("r", encoding="utf-8") as f:
+                    lines = f.readlines()
+                    for line in reversed(lines):
+                        try:
+                            record = json.loads(line)
+                            
+                            # Filter by severity if specified
+                            if severity and record.get("severity", "").lower() != severity:
+                                continue
+                            
+                            # Search in message, host, app, and other fields
+                            searchable = f"{record.get('message', '')} {record.get('host', '')} {record.get('app', '')} {record.get('user_id', '')}".lower()
+                            
+                            if q.lower() in searchable:
+                                results.append(record)
+                                if len(results) >= limit:
+                                    break
+                        except json.JSONDecodeError:
+                            continue
+            except Exception:
+                pass
+        
+        current -= timedelta(minutes=1)
+    
+    return {
+        "items": results,
+        "stats": {
+            "total": len(results),
+            "searched_minutes": searched_minutes,
+            "time_range_hours": hours
+        }
+    }
+

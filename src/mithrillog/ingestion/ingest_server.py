@@ -444,7 +444,22 @@ class IngestServer:
         # Use server receive time for bucket path, but keep original log timestamp in record
         path = self.journal.append(record, bucket_time=server_tz)
         self._last_bucket_path = str(path)
-        _ = path  # placeholder for future metrics
+        
+        # Forward to live tail if configured
+        if self.config.forward_to_host and self.config.forward_to_port:
+            self._forward_log(record)
+
+    def _forward_log(self, record: dict) -> None:
+        if not self._udp_transport:
+            return
+        try:
+            payload = json.dumps(record).encode("utf-8")
+            self._udp_transport.sendto(
+                payload, (self.config.forward_to_host, self.config.forward_to_port)
+            )
+        except Exception:
+            # Best effort forwarding, don't crash ingestion
+            pass
 
     async def _flush_bucket(self) -> None:
         if not self._last_bucket_path:

@@ -794,7 +794,7 @@ main {
 
 .chart-container svg path {
   vector-effect: non-scaling-stroke;
-  transition: opacity 0.2s ease;
+  transition: all 0.2s ease;
 }
 
 .chart-container svg path:hover {
