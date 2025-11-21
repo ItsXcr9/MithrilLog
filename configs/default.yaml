@@ -26,7 +26,10 @@ ingest:
   max_bucket_minutes: 1
   bloom_error_rate: 0.0001
   reservoir_size: 200
+  reservoir_size: 200
   retention_days: 30
+  forward_to_host: api
+  forward_to_port: 9999
 summary:
   hourly_at_minute: 15
   daily_at_hour: 0

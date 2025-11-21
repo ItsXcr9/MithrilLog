@@ -104,6 +104,8 @@ class IngestConfig(BaseModel):
     bloom_error_rate: float = 1e-4
     reservoir_size: int = 200
     retention_days: int = 30
+    forward_to_host: Optional[str] = None
+    forward_to_port: Optional[int] = None
 
 
 class SummaryConfig(BaseModel):

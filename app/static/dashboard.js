@@ -873,7 +873,260 @@ const initDashboard = () => {
 
 // Wait for DOM to be ready
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initDashboard);
+
+// --- Live Tail Logic ---
+let tailSocket = null;
+const terminalOutput = document.getElementById("terminal-output");
+const connectionStatus = document.getElementById("connection-status");
+const toggleTailBtn = document.getElementById("toggle-tail");
+
+function connectTail() {
+  const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+  const wsUrl = `${protocol}//${window.location.host}/ws/tail`;
+  
+  tailSocket = new WebSocket(wsUrl);
+  
+  tailSocket.onopen = () => {
+    connectionStatus.textContent = "Connected";
+    connectionStatus.className = "status-badge connected";
+    toggleTailBtn.textContent = "Stop Tail";
+    appendLog("System: Connected to live tail stream...");
+  };
+  
+  tailSocket.onmessage = (event) => {
+    try {
+      const log = JSON.parse(event.data);
+      renderLogLine(log);
+    } catch (e) {
+      appendLog(event.data);
+    }
+  };
+  
+  tailSocket.onclose = () => {
+    connectionStatus.textContent = "Disconnected";
+    connectionStatus.className = "status-badge disconnected";
+    toggleTailBtn.textContent = "Start Tail";
+    tailSocket = null;
+    appendLog("System: Disconnected.");
+  };
+  
+  tailSocket.onerror = (error) => {
+    console.error("WebSocket error:", error);
+    connectionStatus.textContent = "Error";
+    connectionStatus.className = "status-badge disconnected";
+  };
+}
+
+function disconnectTail() {
+  if (tailSocket) {
+    tailSocket.close();
+  }
+}
+
+toggleTailBtn.addEventListener("click", () => {
+  if (tailSocket) {
+    disconnectTail();
+  } else {
+    connectTail();
+  }
+});
+
+function renderLogLine(log) {
+  const line = document.createElement("div");
+  line.className = "log-line";
+  
+  const ts = new Date(log.timestamp).toLocaleTimeString();
+  const sevClass = `log-sev-${log.severity.toLowerCase()}`;
+  
+  line.innerHTML = `
+    <span class="log-ts">${ts}</span>
+    <span class="${sevClass}">[${log.severity.toUpperCase()}]</span>
+    <span class="log-host">${log.host}</span>:
+    <span class="log-msg">${escapeHtml(log.message)}</span>
+  `;
+  
+  terminalOutput.appendChild(line);
+  
+  // Auto-scroll if near bottom
+  const window = document.querySelector(".terminal-window");
+  if (window.scrollHeight - window.scrollTop - window.clientHeight < 100) {
+    window.scrollTop = window.scrollHeight;
+  }
+  
+  // Limit lines
+  if (terminalOutput.childElementCount > 500) {
+    terminalOutput.removeChild(terminalOutput.firstChild);
+  }
+}
+
+function appendLog(text) {
+  const line = document.createElement("div");
+  line.className = "log-line";
+  line.textContent = text;
+  terminalOutput.appendChild(line);
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+// --- Log Search Logic ---
+const searchInput = document.getElementById("search-input");
+const searchBtn = document.getElementById("search-btn");
+const searchResults = document.getElementById("search-results");
+const searchHours = document.getElementById("search-hours");
+
+searchBtn.addEventListener("click", async () => {
+  const query = searchInput.value.trim();
+  if (query.length < 3) {
+    alert("Please enter at least 3 characters.");
+    return;
+  }
+  
+  searchBtn.disabled = true;
+  searchBtn.textContent = "Searching...";
+  searchResults.innerHTML = '<p class="muted">Searching...</p>';
+  
+  try {
+    const hours = searchHours.value;
+    const response = await fetch(`/logs/search?q=${encodeURIComponent(query)}&hours=${hours}&limit=50`);
+    const data = await response.json();
+    renderSearchResults(data.items);
+  } catch (error) {
+    console.error("Search failed:", error);
+    searchResults.innerHTML = '<p class="error">Search failed. Check console.</p>';
+  } finally {
+    searchBtn.disabled = false;
+    searchBtn.textContent = "Search";
+  }
+});
+
+function renderSearchResults(items) {
+  if (!items || items.length === 0) {
+    searchResults.innerHTML = '<p class="muted">No results found.</p>';
+    return;
+  }
+  
+  searchResults.innerHTML = items.map(log => `
+    <div class="log-result">
+      <div class="meta">
+        <span class="ts">${new Date(log.timestamp).toLocaleString()}</span>
+        <span class="host">${log.host}</span>
+        <span class="app">${log.app}</span>
+        <span class="sev log-sev-${log.severity}">${log.severity.toUpperCase()}</span>
+      </div>
+      <div class="msg">${escapeHtml(log.message)}</div>
+    </div>
+  `).join("");
+}
+
+// Initial load
+document.addEventListener("DOMContentLoaded", () => {
+  fetchHourlySummaries();
+  fetchDailySummaries();
+  fetchTrendSummaries();
+  fetchErrorInsights();
+  fetchLogCounts();
+});
 } else {
   initDashboard();
+}
+
+// --- Enhanced Log Search ---
+const searchInput = document.getElementById("search-input");
+const searchBtn = document.getElementById("search-btn");
+const searchResults = document.getElementById("search-results");
+const searchHours = document.getElementById("search-hours");
+const searchSeverity = document.getElementById("search-severity");
+const searchStats = document.getElementById("search-stats");
+
+// Allow Enter key to trigger search
+if (searchInput) {
+  searchInput.addEventListener("keypress", (e) => {
+    if (e.key === "Enter") {
+      searchBtn.click();
+    }
+  });
+}
+
+if (searchBtn) {
+  searchBtn.addEventListener("click", async () => {
+    const query = searchInput.value.trim();
+    if (query.length < 1) {
+      alert("Please enter a search term.");
+      return;
+    }
+    
+    searchBtn.disabled = true;
+    searchBtn.textContent = "Searching...";
+    searchResults.innerHTML = '<p class="muted">Searching logs...</p>';
+    searchStats.innerHTML = '';
+    
+    try {
+      const hours = searchHours.value;
+      const severity = searchSeverity.value;
+      const params = new URLSearchParams({
+        q: query,
+        hours: hours,
+        limit: 100
+      });
+      if (severity) {
+        params.append('severity', severity);
+      }
+      
+      const response = await fetch(`/logs/search?${params}`);
+      const data = await response.json();
+      
+      // Display stats
+      if (data.stats) {
+        const { total, searched_minutes, time_range_hours } = data.stats;
+        searchStats.innerHTML = `
+          <strong>${total}</strong> results found in <strong>${searched_minutes}</strong> log buckets 
+          (searched last <strong>${time_range_hours}h</strong>)
+        `;
+      }
+      
+      renderSearchResults(data.items);
+    } catch (error) {
+      console.error("Search failed:", error);
+      searchResults.innerHTML = '<p class="error">Search failed. Please try again.</p>';
+    } finally {
+      searchBtn.disabled = false;
+      searchBtn.textContent = "Search";
+    }
+  });
+}
+
+function renderSearchResults(items) {
+  if (!items || items.length === 0) {
+    searchResults.innerHTML = '<p class="muted">No results found. Try a different query or time range.</p>';
+    return;
+  }
+  
+  searchResults.innerHTML = items.map(log => {
+    const sevClass = `log-sev-${log.severity.toLowerCase()}`;
+    const timestamp = new Date(log.timestamp).toLocaleString('en-US', {
+      timeZone: 'Asia/Tehran',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    });
+    
+    return `
+      <div class="log-result">
+        <div class="meta">
+          <span class="ts">⏰ ${timestamp}</span>
+          <span class="host">🖥️ ${log.host}</span>
+          <span class="app">📦 ${log.app || 'N/A'}</span>
+          <span class="sev ${sevClass}">⚠️ ${log.severity.toUpperCase()}</span>
+          ${log.user_id ? `<span class="user">👤 ${log.user_id}</span>` : ''}
+        </div>
+        <div class="msg">${escapeHtml(log.message)}</div>
+      </div>
+    `;
+  }).join("");
 }
