@@ -103,9 +103,7 @@ class DailySummarizer:
         variables = {
             "day_start": day_start.isoformat(),
             "day_end": day_end.isoformat(),
-            "stats_table": self._format_stats(stats_struct),
             "hourly_digest": self._format_hourly(hourly_links[-12:]),
-            "highlight_table": self._format_highlights(limited_highlights),
             "stats": stats_struct,
             "highlights": condensed_highlights,
         }

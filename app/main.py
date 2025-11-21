@@ -111,7 +111,11 @@ def _error_insights(limit: int) -> List[dict]:
 
 @app.get("/", response_class=HTMLResponse)
 def dashboard(request: Request) -> HTMLResponse:
-    return templates.TemplateResponse("dashboard.html", {"request": request})
+    settings = default_settings
+    return templates.TemplateResponse(
+        "dashboard.html",
+        {"request": request, "title": settings.web.title},
+    )
 
 
 @app.get("/health")
@@ -128,6 +132,13 @@ def hourly_summaries(limit: int = Query(5, ge=1, le=48)) -> dict:
 def daily_summaries(limit: int = Query(7, ge=1, le=14)) -> dict:
     settings = default_settings
     base = Path(settings.summary.report_dir) / "daily"
+    return {"items": _list_reports(base, limit)}
+
+
+@app.get("/summaries/trend")
+def trend_summaries(limit: int = Query(7, ge=1, le=14)) -> dict:
+    settings = default_settings
+    base = Path(settings.summary.report_dir) / "trend"
     return {"items": _list_reports(base, limit)}
 
 

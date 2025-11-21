@@ -430,7 +430,7 @@ const buildErrorCard = (item) => {
       <h3 class="card-title">${windowLabel}</h3>
       <span class="card-meta">${item.total_errors.toLocaleString()} critical events</span>
     </div>
-    <p class="incident-summary">${incidentSummary}</p>
+    <!--<p class="incident-summary">${incidentSummary}</p>-->
     <div class="error-meta">
       <div>
         <h4>Severity Mix</h4>
@@ -450,8 +450,10 @@ const buildErrorCard = (item) => {
       </div>` : ''}
     </div>
     <div class="error-highlights">
-      <h4>Sample Events</h4>
-      <ul>${highlights || '<li>No error highlights captured.</li>'}</ul>
+      <details>
+        <summary>View Sample Events (${(item.highlights || []).length})</summary>
+        <ul>${highlights || '<li>No error highlights captured.</li>'}</ul>
+      </details>
     </div>
     <p class="action-hint">${actionHint}</p>
   `;
