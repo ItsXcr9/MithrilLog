@@ -20,7 +20,7 @@ const globalRefresh = document.getElementById("global-refresh");
 const chartRefresh = document.getElementById("chart-refresh");
 const template = document.getElementById("summary-card-template");
 
-const HOURLY_PAGE_SIZE = 6;
+const HOURLY_PAGE_SIZE = 4;
 let hourlyData = [];
 let hourlyPage = 0;
 let focusedItem = null;
@@ -259,9 +259,16 @@ const renderFocus = () => {
     `)
     .join("");
   
+  // For daily summaries, prefer summary if highlight_analysis is not available
+  const analysisContent = focusedKind === 'daily' 
+    ? (item.highlight_analysis || item.summary || "")
+    : (item.highlight_analysis || "");
+  
   const highlightAnalysis = renderMarkdown(
-    item.highlight_analysis || "",
-    "AI-powered analysis will appear here after processing. Ensure the analyzer job has completed for this time window.",
+    analysisContent,
+    focusedKind === 'hourly' 
+      ? "AI-powered analysis will appear here after processing. Ensure the analyzer job has completed for this time window."
+      : "Daily summary analysis will appear here when available.",
   );
   const summaryHtml = renderMarkdown(item.summary || "", "No summary available.");
 
@@ -292,9 +299,8 @@ const renderFocus = () => {
         <strong>${topApp ? `${formatContainerTag(topApp[0])}: ${topApp[1]}` : "—"}</strong>
       </div>
     </div>
-    <!-- <div class="focus-summary">${summaryHtml}</div> -->
     <div class="ai-highlights">
-      <h3>AI-Powered Analysis</h3>
+      <h3>${focusedKind === 'hourly' ? 'AI-Powered Analysis' : 'Daily Summary Analysis'}</h3>
       <div>${highlightAnalysis}</div>
     </div>
     <div class="focus-highlight-wrap">
@@ -324,7 +330,13 @@ const renderHourlyList = () => {
     hourlyList.appendChild(
       buildCard(item, "hourly", {
         selectable: true,
-        onSelect: () => setFocus(item, "hourly"),
+        onSelect: () => {
+          setFocus(item, "hourly");
+          // Scroll focused panel into view
+          setTimeout(() => {
+            focusedPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }, 50);
+        },
       })
     );
   }
@@ -375,7 +387,13 @@ const loadDailyData = async () => {
     dailyContainer.appendChild(
       buildCard(item, "daily", {
         selectable: true,
-        onSelect: () => setFocus(item, "daily"),
+        onSelect: () => {
+          setFocus(item, "daily");
+          // Scroll focused panel into view
+          setTimeout(() => {
+            focusedPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }, 50);
+        },
       })
     );
   }
@@ -466,7 +484,7 @@ const buildErrorCard = (item) => {
 
 const buildTrendCard = (item) => {
   const card = document.createElement("article");
-  card.className = "card";
+  card.className = "card trend-card";
   
   const date = new Date(item.date).toLocaleDateString('en-US', {
     timeZone: 'Asia/Tehran',
@@ -535,8 +553,8 @@ const loadErrorInsights = async () => {
 };
 
 const loadTrendData = async () => {
-  // Always load only 1 (latest) trend report
-  const response = await fetch(`/summaries/trend?limit=1`);
+  const limit = parseInt(trendLimit.value, 10);
+  const response = await fetch(`/summaries/trend?limit=${limit}`);
   
   if (!response.ok) {
     throw new Error("Failed to load trend analysis");
@@ -544,15 +562,17 @@ const loadTrendData = async () => {
   
   const data = await response.json();
   trendFeed.innerHTML = "";
+  const items = data.items || [];
   
-  if (!data.items || !data.items.length) {
+  if (!items.length) {
     trendFeed.innerHTML = '<div class="empty"><p>No trend analysis available yet. Trend reports are generated daily comparing the last 3 days of logs.</p></div>';
     return;
   }
   
-  // Show only the latest trend report
-  const latestTrend = data.items[0];
-  trendFeed.appendChild(buildTrendCard(latestTrend));
+  // Show all trend reports up to the limit
+  for (const item of items) {
+    trendFeed.appendChild(buildTrendCard(item));
+  }
 };
 
 const showError = () => {
@@ -598,6 +618,9 @@ dailyLimit.addEventListener("change", () => loadDailyData().catch(console.error)
 
 if (trendRefresh) {
   trendRefresh.addEventListener("click", () => loadTrendData().catch(console.error));
+}
+if (trendLimit) {
+  trendLimit.addEventListener("change", () => loadTrendData().catch(console.error));
 }
 
 errorRefresh.addEventListener("click", () => loadErrorInsights().catch(console.error));
@@ -1035,12 +1058,6 @@ function appendLog(text) {
   line.className = "log-line";
   line.textContent = text;
   terminalOutput.appendChild(line);
-}
-
-function escapeHtml(text) {
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
 }
 
 // --- Log Search Logic ---

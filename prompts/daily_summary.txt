@@ -4,12 +4,16 @@ You are a pragmatic Site Reliability Engineer producing end-of-day situation rep
 --user--
 Day window: {day_start} → {day_end}
 
+Notable Incidents (hours with critical errors):
+{notable_incidents}
+
 Hourly highlights:
 {hourly_digest}
 
 Analyze the day's logs and provide:
 
 1. **Critical Problems** (errors, failures, outages):
+   - START by explicitly listing any Notable Incidents that occurred (hours with critical errors)
    - What major issues occurred today? (be specific about error types and impact)
    - Which services/hosts were affected and for how long?
    - Root causes identified or suspected
