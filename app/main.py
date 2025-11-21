@@ -126,7 +126,12 @@ def _error_insights(limit: int) -> List[dict]:
 
 @app.get("/", response_class=HTMLResponse)
 def dashboard(request: Request) -> HTMLResponse:
-    settings = default_settings
+    # Load config at runtime from mounted volume
+    config_path = Path(__file__).parent.parent / "configs" / "default.yaml"
+    if config_path.exists():
+        settings = Settings.load(config_path)
+    else:
+        settings = default_settings
     return templates.TemplateResponse(
         "dashboard.html",
         {"request": request, "title": settings.web.title},
