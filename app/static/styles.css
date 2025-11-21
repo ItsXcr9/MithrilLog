@@ -499,6 +499,11 @@ body {
   border-left: 3px solid var(--error-text);
 }
 
+/* Trend Cards */
+.trend-card {
+  border-left: 3px solid var(--accent-primary);
+}
+
 .error-card .incident-summary {
   color: var(--text-primary);
   font-weight: 500;
@@ -755,8 +760,18 @@ main {
   padding: 1.5rem;
 }
 
+/* Daily Panel */
+.daily-panel {
+  padding: 1.5rem;
+}
+
 /* Error Monitor */
 .error-monitor {
+  padding: 1.5rem;
+}
+
+/* Trend Panel */
+.trend-panel {
   padding: 1.5rem;
 }
 

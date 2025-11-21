@@ -36,8 +36,9 @@
             <label>
               History window
               <select id="hourly-history">
+                <option value="4" selected>4h</option>
                 <option value="6">6h</option>
-                <option value="12" selected>12h</option>
+                <option value="12">12h</option>
                 <option value="24">24h</option>
                 <option value="48">48h</option>
               </select>
@@ -100,8 +101,9 @@
             <label>
               Show last
               <select id="error-limit">
+                <option value="4" selected>4</option>
                 <option value="6">6</option>
-                <option value="10" selected>10</option>
+                <option value="10">10</option>
                 <option value="16">16</option>
               </select>
               windows
@@ -119,24 +121,26 @@
             <label>
               Show last
               <select id="trend-limit">
+                <option value="4" selected>4</option>
                 <option value="7">7</option>
                 <option value="14">14</option>
               </select>
-              days
+              reports
             </label>
             <button id="trend-refresh">Refresh</button>
           </div>
         </div>
-        <div id="trend-feed" class="card-grid"></div>
+        <div id="trend-feed" class="card-grid tight"></div>
       </section>
 
-      <section>
+      <section class="daily-panel glass">
         <div class="section-header">
           <h2>Daily Summaries</h2>
           <div class="controls">
             <label>
               Show last
               <select id="daily-limit">
+                <option value="4" selected>4</option>
                 <option value="7">7</option>
                 <option value="10">10</option>
                 <option value="14">14</option>
