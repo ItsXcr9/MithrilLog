@@ -122,6 +122,11 @@ class PromptsConfig(BaseModel):
     daily: Path = Path("prompts/daily_summary.txt")
     anomaly: Path = Path("prompts/anomaly_report.txt")
     highlight_analysis: Path = Path("prompts/highlight_analysis.txt")
+    trend: Path = Path("prompts/trend_analysis.txt")
+
+
+class WebConfig(BaseModel):
+    title: str = "Observability Console MITHRILLOG"
 
 
 class Settings(BaseModel):
@@ -131,6 +136,7 @@ class Settings(BaseModel):
     summary: SummaryConfig = SummaryConfig()
     storage: StorageConfig = StorageConfig()
     prompts: PromptsConfig = PromptsConfig()
+    web: WebConfig = WebConfig()
     timezone: str = "UTC"
 
     @classmethod

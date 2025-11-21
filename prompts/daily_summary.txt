@@ -4,14 +4,8 @@ You are a pragmatic Site Reliability Engineer producing end-of-day situation rep
 --user--
 Day window: {day_start} → {day_end}
 
-Aggregated stats:
-{stats_table}
-
 Hourly highlights:
 {hourly_digest}
-
-Representative events (prioritized by severity):
-{highlight_table}
 
 Analyze the day's logs and provide:
 

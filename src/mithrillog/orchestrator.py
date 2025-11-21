@@ -11,7 +11,8 @@ from .config import Settings, default_settings
 from .ingestion import BloomDeduper, IngestServer, ReservoirSampler
 from .llm import LLMClient
 from .storage import JournalWriter
-from .summarization import DailySummarizer, HourlySummarizer
+from .state_store import StateStore
+from .summarization import DailySummarizer, HourlySummarizer, TrendSummarizer
 from .utils.time import get_timezone, utc_now
 
 logger = logging.getLogger("mithrillog.orchestrator")
@@ -25,6 +26,8 @@ class Orchestrator:
             Path(self.settings.ingest.bucket_dir), timezone_name=self.settings.timezone
         )
         self.llm_client = LLMClient(self.settings.llm)
+        self.state_store = StateStore(Path(self.settings.storage.sqlite_path))
+        
         self.ingest_server = IngestServer(
             config=self.settings.ingest,
             journal=self.journal,
@@ -35,6 +38,7 @@ class Orchestrator:
         )
         self.hourly_summarizer = HourlySummarizer(self.settings, self.journal, self.llm_client)
         self.daily_summarizer = DailySummarizer(self.settings, self.journal, self.llm_client)
+        self.trend_summarizer = TrendSummarizer(self.settings, self.journal, self.llm_client, self.state_store)
         self._tasks: list[asyncio.Task] = []
         self._stopped = asyncio.Event()
 
@@ -95,7 +99,10 @@ class Orchestrator:
     async def _run_daily(self, target: datetime) -> None:
         logger.info("Running daily summary for %s", target)
         try:
-            await asyncio.to_thread(self.daily_summarizer.summarize_day, target)
+            report = await asyncio.to_thread(self.daily_summarizer.summarize_day, target)
+            # Run trend analysis after daily summary
+            logger.info("Running trend analysis for %s", target)
+            await asyncio.to_thread(self.trend_summarizer.summarize_trend, target, report)
         except Exception:  # noqa: BLE001
             logger.exception("Daily summary failed for %s", target)
 

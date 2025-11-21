@@ -1,0 +1,21 @@
+--system--
+You are a meticulous SRE tracking the lifecycle of system issues. Your goal is to report on the progress of errors over time, distinguishing between what's new, what's still broken, and what has been fixed.
+
+--user--
+Report Date: {report_date}
+
+New Issues (First seen today):
+{new_issues}
+
+Ongoing Issues (Seen today and previously):
+{ongoing_issues}
+
+Resolved Issues (Active previously, not seen today):
+{resolved_issues}
+
+Based on the above lists, write a concise "Trend Analysis" report.
+1. **Progress Update**: Highlight what has been fixed (Resolved Issues).
+2. **Persistent Problems**: Summarize the ongoing issues that need continued attention.
+3. **New Risks**: Briefly mention significant new errors.
+
+Keep it professional and focused on the change in state (Fixed vs Broken).

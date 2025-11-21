@@ -20,17 +20,17 @@ llm:
   gemini_model: gemini-2.5-flash-lite
 ingest:
   host: 0.0.0.0
-  udp_port: 5514
-  tcp_port: 5614
+  udp_port: 5516
+  tcp_port: 5616
   bucket_dir: ./data/buckets
   max_bucket_minutes: 1
   bloom_error_rate: 0.0001
   reservoir_size: 200
   retention_days: 30
 summary:
-  hourly_at_minute: 5
+  hourly_at_minute: 15
   daily_at_hour: 0
-  daily_at_minute: 10
+  daily_at_minute: 25
   report_dir: ./data/reports
 storage:
   sqlite_path: ./data/mithrillog.db
@@ -39,3 +39,7 @@ prompts:
   daily: ./prompts/daily_summary.txt
   anomaly: ./prompts/anomaly_report.txt
   highlight_analysis: ./prompts/highlight_analysis.txt
+  trend: ./prompts/trend_analysis.txt
+  trend: ./prompts/trend_analysis.txt
+web:
+  title: IBSCloud Console 
