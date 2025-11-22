@@ -712,7 +712,7 @@ const loadLogCountChart = async () => {
       }
     }
     
-    const response = await fetch("metrics/log-counts?days=30", {
+    const response = await fetch("api/stats/counts?days=30", {
       method: 'GET',
       headers: {
         'Accept': 'application/json',

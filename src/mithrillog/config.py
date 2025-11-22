@@ -131,6 +131,17 @@ class WebConfig(BaseModel):
     title: str = "Observability Console MITHRILLOG"
 
 
+class AlertConfig(BaseModel):
+    enabled: bool = False
+    telegram_bot_token: Optional[str] = None
+    telegram_chat_id: Optional[str] = None
+    error_threshold: int = 10
+
+
+class CorsConfig(BaseModel):
+    allowed_origins: list[str] = ["*"]
+
+
 class Settings(BaseModel):
     environment: Literal["dev", "prod"] = "dev"
     llm: LLMConfig = LLMConfig()
@@ -139,6 +150,8 @@ class Settings(BaseModel):
     storage: StorageConfig = StorageConfig()
     prompts: PromptsConfig = PromptsConfig()
     web: WebConfig = WebConfig()
+    alert: AlertConfig = AlertConfig()
+    cors: CorsConfig = CorsConfig()
     timezone: str = "UTC"
 
     @classmethod

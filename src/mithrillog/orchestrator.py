@@ -7,9 +7,11 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
 
+from .alerting import AlertManager
 from .config import Settings, default_settings
 from .ingestion import BloomDeduper, IngestServer, ReservoirSampler
 from .llm import LLMClient
+from .logging import configure_logging
 from .storage import JournalWriter
 from .state_store import StateStore
 from .summarization import DailySummarizer, HourlySummarizer, TrendSummarizer
@@ -20,6 +22,7 @@ logger = logging.getLogger("mithrillog.orchestrator")
 
 class Orchestrator:
     def __init__(self, settings: Optional[Settings] = None) -> None:
+        configure_logging()
         self.settings = settings or default_settings
         self.local_tz = get_timezone(self.settings.timezone)
         self.journal = JournalWriter(
@@ -27,6 +30,7 @@ class Orchestrator:
         )
         self.llm_client = LLMClient(self.settings.llm)
         self.state_store = StateStore(Path(self.settings.storage.sqlite_path))
+        self.alert_manager = AlertManager(self.settings.alert, self.settings.web.title)
         
         self.ingest_server = IngestServer(
             config=self.settings.ingest,
@@ -79,7 +83,12 @@ class Orchestrator:
     async def _run_hourly(self, target: datetime) -> None:
         logger.info("Running hourly summary for %s", target)
         try:
-            await asyncio.to_thread(self.hourly_summarizer.summarize_hour, target)
+            report = await asyncio.to_thread(self.hourly_summarizer.summarize_hour, target)
+            # Check for alerts
+            await self.alert_manager.check_and_alert(
+                report.get("stats", {}), 
+                report.get("anomalies", "")
+            )
         except Exception:  # noqa: BLE001
             logger.exception("Hourly summary failed for %s", target)
 
@@ -196,9 +205,32 @@ class Orchestrator:
                 logger.exception("Retention cleanup failed")
 
     async def _watchdog(self) -> None:
+        """Monitor system health and resource usage."""
+        import shutil
+        
+        logger.info("Watchdog started")
         while True:
-            await asyncio.sleep(60)
-            # hook for health checks, metrics
+            try:
+                await asyncio.sleep(300)  # Check every 5 minutes
+                
+                # Check disk usage
+                total, used, free = shutil.disk_usage(self.settings.ingest.bucket_dir)
+                free_gb = free / (1024**3)
+                percent_free = (free / total) * 100
+                
+                if percent_free < 10 or free_gb < 5:
+                    logger.warning(
+                        "Low disk space warning: %.2f GB free (%.1f%%)", 
+                        free_gb, percent_free
+                    )
+                else:
+                    logger.debug(
+                        "Disk usage: %.2f GB free (%.1f%%)", 
+                        free_gb, percent_free
+                    )
+                    
+            except Exception:  # noqa: BLE001
+                logger.exception("Watchdog check failed")
 
     async def run_forever(self) -> None:
         await self.start()

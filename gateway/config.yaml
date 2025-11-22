@@ -17,3 +17,9 @@ projects:
 security:
   secret_key: "xcr9session"
   session_expire_minutes: 60
+
+cors:
+  allowed_origins:
+    - "https://mithrillog.xcr9.site"
+    - "http://localhost:9000"
+    - "http://127.0.0.1:9000"
