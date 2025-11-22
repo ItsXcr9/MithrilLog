@@ -348,7 +348,7 @@ const renderHourlyList = () => {
 
 const loadHourlyData = async () => {
   const limit = parseInt(hourlyHistory.value, 10);
-  const response = await fetch(`/summaries/hourly?limit=${limit}`);
+  const response = await fetch(`summaries/hourly?limit=${limit}`);
   
   if (!response.ok) {
     throw new Error("Failed to load hourly summaries");
@@ -369,7 +369,7 @@ const loadHourlyData = async () => {
 
 const loadDailyData = async () => {
   const limit = parseInt(dailyLimit.value, 10);
-  const response = await fetch(`/summaries/daily?limit=${limit}`);
+  const response = await fetch(`summaries/daily?limit=${limit}`);
   
   if (!response.ok) {
     throw new Error("Failed to load daily summaries");
@@ -532,7 +532,7 @@ const setFocus = (item, kind) => {
 
 const loadErrorInsights = async () => {
   const limit = parseInt(errorLimit.value, 10);
-  const response = await fetch(`/insights/errors?limit=${limit}`);
+  const response = await fetch(`insights/errors?limit=${limit}`);
   
   if (!response.ok) {
     throw new Error("Failed to load error insights");
@@ -554,7 +554,7 @@ const loadErrorInsights = async () => {
 
 const loadTrendData = async () => {
   const limit = parseInt(trendLimit.value, 10);
-  const response = await fetch(`/summaries/trend?limit=${limit}`);
+  const response = await fetch(`summaries/trend?limit=${limit}`);
   
   if (!response.ok) {
     throw new Error("Failed to load trend analysis");
@@ -670,7 +670,7 @@ const loadLogCountChart = async () => {
       }
     }
     
-    const response = await fetch("/metrics/log-counts?days=30", {
+    const response = await fetch("metrics/log-counts?days=30", {
       method: 'GET',
       headers: {
         'Accept': 'application/json',

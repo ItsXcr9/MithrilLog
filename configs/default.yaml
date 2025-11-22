@@ -26,7 +26,6 @@ ingest:
   max_bucket_minutes: 1
   bloom_error_rate: 0.0001
   reservoir_size: 200
-  reservoir_size: 200
   retention_days: 30
   forward_to_host: api
   forward_to_port: 9999
@@ -43,6 +42,5 @@ prompts:
   anomaly: ./prompts/anomaly_report.txt
   highlight_analysis: ./prompts/highlight_analysis.txt
   trend: ./prompts/trend_analysis.txt
-  trend: ./prompts/trend_analysis.txt
 web:
-  title: IBSCloud Console 
+  title: IBSCloud Console
