@@ -6,6 +6,7 @@ from fastapi import FastAPI, Request, Response, Form, Depends, HTTPException, st
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import create_engine, Column, String, DateTime, Boolean
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
@@ -39,6 +40,16 @@ Base.metadata.create_all(bind=engine)
 
 # --- App Setup ---
 app = FastAPI()
+
+# Add CORS middleware to fix Safari blocking issues
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 templates = Jinja2Templates(directory="app/templates")
 
 # Dependency
