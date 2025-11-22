@@ -42,9 +42,12 @@ Base.metadata.create_all(bind=engine)
 app = FastAPI()
 
 # Add CORS middleware to fix Safari blocking issues
+allowed_origins = config.get("cors", {}).get("allowed_origins", ["*"])
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=allowed_origins,
+    allow_origin_regex="https?://.*",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

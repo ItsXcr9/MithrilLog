@@ -31,9 +31,15 @@ _cache_times = {}
 app = FastAPI(title="MithrilLog API")
 
 # Add CORS middleware
+# Add CORS middleware
+# Load settings early to get CORS config
+settings = default_settings
+allowed_origins = settings.cors.allowed_origins
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=allowed_origins,
+    allow_origin_regex="https?://.*",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -254,7 +260,7 @@ def _get_hourly_log_counts(days: int = 30) -> List[dict]:
     return result
 
 
-@app.get("/metrics/log-counts")
+@app.get("/api/stats/counts")
 def log_counts(days: int = Query(30, ge=1, le=90)) -> dict:
     """Get hourly log counts for the past N days."""
     cache_key = f"log_counts_{days}"
