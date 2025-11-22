@@ -1,0 +1,19 @@
+projects:
+  - id: project1
+    name: "Project Alpha"
+    password: "password123"  # In production, use hashed passwords or env vars
+    upstream_url: "http://127.0.0.1:9000"
+  
+  - id: project2
+    name: "Project Beta"
+    password: "password456"
+    upstream_url: "http://127.0.0.1:9800"
+
+  - id: project3
+    name: "Project Gamma"
+    password: "password789"
+    upstream_url: "http://127.0.0.1:9900"
+
+security:
+  secret_key: "change_this_to_a_secure_random_string"
+  session_expire_minutes: 60
