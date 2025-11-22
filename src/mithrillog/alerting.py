@@ -82,23 +82,56 @@ class AlertManager:
         if not self.config.enabled:
             return
 
-        alerts = []
+        should_alert = False
+        alert_parts = []
+        
+        # Build detailed statistics
+        total_events = stats.get("total_events", 0)
+        total_errors = stats.get("total_errors", 0)
         
         # Check error threshold
-        total_errors = stats.get("total_errors", 0)
         if total_errors >= self.config.error_threshold:
-            alerts.append(
-                f"High Error Count: {total_errors} (Threshold: {self.config.error_threshold})"
-            )
-
+            should_alert = True
+            alert_parts.append(f"⚠️ *High Error Count*: {total_errors} errors")
+        
         # Check anomalies (simple heuristic: if LLM found something significant)
-        if anomalies and "No anomalies detected" not in anomalies and "No notable anomalies" not in anomalies:
-            # Truncate anomaly text for alert
-            summary = anomalies.split("\n")[0][:100]
-            alerts.append(f"Anomaly Detected: {summary}")
-
-        if alerts:
-            await self.send_alert(
-                f"{self.web_title} Alert",
-                "\n".join(alerts)
-            )
+        has_anomaly = anomalies and "No anomalies detected" not in anomalies and "No notable anomalies" not in anomalies
+        if has_anomaly:
+            should_alert = True
+            # Extract first meaningful line from anomaly report
+            anomaly_lines = [line.strip() for line in anomalies.split("\n") if line.strip()]
+            anomaly_summary = anomaly_lines[0] if anomaly_lines else "Anomaly detected"
+            # Limit to 150 chars for readability
+            if len(anomaly_summary) > 150:
+                anomaly_summary = anomaly_summary[:147] + "..."
+            alert_parts.append(f"🔍 *Anomaly*: {anomaly_summary}")
+        
+        if not should_alert:
+            return
+        
+        # Add statistics section
+        stats_lines = [f"📊 *Statistics*:"]
+        stats_lines.append(f"• Total Events: {total_events:,}")
+        
+        # Severity breakdown
+        by_severity = stats.get("by_severity", {})
+        if by_severity:
+            error_severities = {k: v for k, v in by_severity.items() if k in {"emerg", "alert", "crit", "err"}}
+            if error_severities:
+                severity_str = ", ".join([f"{sev}: {count}" for sev, count in sorted(error_severities.items())])
+                stats_lines.append(f"• Errors: {severity_str}")
+        
+        # Top hosts
+        by_host = stats.get("by_host", {})
+        if by_host:
+            top_hosts = sorted(by_host.items(), key=lambda x: x[1], reverse=True)[:3]
+            hosts_str = ", ".join([f"{host} ({count})" for host, count in top_hosts])
+            stats_lines.append(f"• Top Hosts: {hosts_str}")
+        
+        alert_parts.append("\n".join(stats_lines))
+        
+        # Send the alert
+        await self.send_alert(
+            f"{self.web_title} Alert",
+            "\n\n".join(alert_parts)
+        )
