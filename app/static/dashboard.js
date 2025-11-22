@@ -483,8 +483,8 @@ const buildErrorCard = (item) => {
 };
 
 const buildTrendCard = (item) => {
-  const card = document.createElement("article");
-  card.className = "card trend-card";
+  const container = document.createElement("div");
+  container.className = "trend-content";
   
   const date = new Date(item.date).toLocaleDateString('en-US', {
     timeZone: 'Asia/Tehran',
@@ -497,31 +497,76 @@ const buildTrendCard = (item) => {
   const ongoingCount = item.ongoing_count || 0;
   const resolvedCount = item.resolved_count || 0;
   
-  card.innerHTML = `
-    <div class="card-header">
-      <h3 class="card-title">📊 Trend Analysis</h3>
-      <span class="card-meta">${date} (3-day comparison)</span>
+  // Helper to render issue list with detailed explanations
+  const renderIssueList = (issues, type, emoji) => {
+    if (!issues || !issues.length) {
+      return '';
+    }
+    
+    return `
+      <div class="trend-category">
+        <h3>${emoji} ${type} Issues (${issues.length})</h3>
+        ${issues.map((issue, idx) => {
+          const message = issue.sample_message || '';
+          const lines = message.split('\n');
+          const errorType = lines[0] || 'Unknown Error';
+          const stackTrace = lines.slice(1).join('\n');
+          
+          return `
+            <div class="error-explanation">
+              <div class="error-number">#${idx + 1}</div>
+              <div class="error-content">
+                <div class="error-title">
+                  <span class="pill severity-${issue.severity || 'info'}">${issue.severity || 'info'}</span>
+                  <span class="error-type">${escapeHtml(errorType)}</span>
+                </div>
+                ${stackTrace ? `
+                  <details class="error-details">
+                    <summary>View Stack Trace</summary>
+                    <pre>${escapeHtml(stackTrace)}</pre>
+                  </details>
+                ` : ''}
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    `;
+  };
+  
+  const details = item.details || {};
+  
+  container.innerHTML = `
+    <div class="trend-header">
+      <h2>📊 Trend Analysis</h2>
+      <p class="trend-date">${date} • 3-day comparison</p>
     </div>
-    <div class="card-summary">
+    
+    <div class="trend-summary">
       ${renderMarkdown(item.summary, "No trend analysis available.")}
     </div>
-    <div class="error-meta">
-      <div>
-        <h4>🆕 New Issues</h4>
-        <span class="pill severity-error">${newCount}</span>
+    
+    <div class="trend-stats">
+      <div class="stat-item ${newCount > 0 ? 'has-issues' : ''}">
+        <span class="stat-label">🆕 New</span>
+        <span class="stat-value">${newCount}</span>
       </div>
-      <div>
-        <h4>🔄 Ongoing</h4>
-        <span class="pill severity-warning">${ongoingCount}</span>
+      <div class="stat-item ${ongoingCount > 0 ? 'has-issues' : ''}">
+        <span class="stat-label">🔄 Ongoing</span>
+        <span class="stat-value">${ongoingCount}</span>
       </div>
-      <div>
-        <h4>✅ Resolved</h4>
-        <span class="pill severity-info">${resolvedCount}</span>
+      <div class="stat-item ${resolvedCount > 0 ? 'resolved' : ''}">
+        <span class="stat-label">✅ Resolved</span>
+        <span class="stat-value">${resolvedCount}</span>
       </div>
     </div>
+    
+    ${renderIssueList(details.new, 'New', '🆕')}
+    ${renderIssueList(details.ongoing, 'Ongoing', '🔄')}
+    ${renderIssueList(details.resolved, 'Resolved', '✅')}
   `;
   
-  return card;
+  return container;
 };
 
 const setFocus = (item, kind) => {
@@ -553,8 +598,7 @@ const loadErrorInsights = async () => {
 };
 
 const loadTrendData = async () => {
-  const limit = parseInt(trendLimit.value, 10);
-  const response = await fetch(`summaries/trend?limit=${limit}`);
+  const response = await fetch(`summaries/trend?limit=1`);
   
   if (!response.ok) {
     throw new Error("Failed to load trend analysis");
@@ -569,10 +613,8 @@ const loadTrendData = async () => {
     return;
   }
   
-  // Show all trend reports up to the limit
-  for (const item of items) {
-    trendFeed.appendChild(buildTrendCard(item));
-  }
+  // Show only the latest trend report
+  trendFeed.appendChild(buildTrendCard(items[0]));
 };
 
 const showError = () => {
@@ -1079,7 +1121,7 @@ searchBtn.addEventListener("click", async () => {
   
   try {
     const hours = searchHours.value;
-    const response = await fetch(`/logs/search?q=${encodeURIComponent(query)}&hours=${hours}&limit=50`);
+    const response = await fetch(`logs/search?q=${encodeURIComponent(query)}&hours=${hours}&limit=50`);
     const data = await response.json();
     renderSearchResults(data.items);
   } catch (error) {
@@ -1183,7 +1225,7 @@ async function performSearch(query) {
     // Create abort controller for this search
     currentSearchController = new AbortController();
     
-    const response = await fetch(`/logs/search?${params}`, {
+    const response = await fetch(`logs/search?${params}`, {
       signal: currentSearchController.signal
     });
     const data = await response.json();
