@@ -87,7 +87,8 @@ class Orchestrator:
             # Check for alerts
             await self.alert_manager.check_and_alert(
                 report.get("stats", {}), 
-                report.get("anomalies", "")
+                report.get("anomalies", ""),
+                report.get("highlights", [])
             )
         except Exception:  # noqa: BLE001
             logger.exception("Hourly summary failed for %s", target)

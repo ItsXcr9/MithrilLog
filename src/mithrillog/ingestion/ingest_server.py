@@ -310,6 +310,7 @@ class IngestServer:
             "severity": Counter(),
             "hosts": Counter(),
             "apps": Counter(),
+            "host_apps": Counter(),
             "patterns": Counter(),
             "pattern_hosts": defaultdict(Counter),
             "pattern_apps": defaultdict(Counter),
@@ -325,6 +326,7 @@ class IngestServer:
         stats["severity"][event.severity] += 1
         stats["hosts"][host] += 1
         stats["apps"][app] += 1
+        stats["host_apps"][f"{host}/{app}"] += 1
         stats["patterns"][pattern] += 1
         stats["pattern_hosts"][pattern][host] += 1
         stats["pattern_apps"][pattern][app] += 1
@@ -485,6 +487,7 @@ class IngestServer:
         severity_counts: Counter[str] = stats["severity"]
         host_counts: Counter[str] = stats["hosts"]
         app_counts: Counter[str] = stats["apps"]
+        host_app_counts: Counter[str] = stats["host_apps"]
         pattern_counts: Counter[str] = stats["patterns"]
         highlights: list[dict] = []
         for event in events:
@@ -505,6 +508,7 @@ class IngestServer:
             "severity": dict(severity_counts),
             "hosts": dict(host_counts),
             "apps": dict(app_counts),
+            "host_apps": dict(host_app_counts),
             "total_events": total_events,
             "unique_events": len(events),
             "highlights": sorted(highlights, key=lambda item: item.get("occurrences", 1), reverse=True)[

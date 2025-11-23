@@ -77,7 +77,7 @@ class AlertManager:
             if isinstance(result, Exception):
                 logger.error(f"Alert provider failed: {result}")
 
-    async def check_and_alert(self, stats: dict, anomalies: str) -> None:
+    async def check_and_alert(self, stats: dict, anomalies: str, highlights: list[dict] | None = None) -> None:
         """Check stats against thresholds and alert if necessary."""
         if not self.config.enabled:
             return
@@ -109,6 +109,32 @@ class AlertManager:
         if not should_alert:
             return
         
+        # Add App Errors section if highlights are present
+        if highlights:
+            # Filter for errors
+            error_highlights = [
+                h for h in highlights 
+                if h.get("severity", "info") in {"err", "error", "crit", "critical", "alert", "emerg", "emergency"}
+            ]
+            
+            if error_highlights:
+                error_lines = ["🚨 *App Errors*:"]
+                # Group by app to avoid repetition? Or just list top ones?
+                # Let's list top 5 error patterns
+                for item in error_highlights[:5]:
+                    app = item.get("app", "-")
+                    msg = item.get("message", "")
+                    # Clean message if needed, but it should be cleaned by summarizer already
+                    if len(msg) > 80:
+                        msg = msg[:77] + "..."
+                    count = item.get("occurrences", 1)
+                    error_lines.append(f"• *{app}*: {msg} ({count}x)")
+                
+                if len(error_highlights) > 5:
+                    error_lines.append(f"• ... and {len(error_highlights) - 5} more errors")
+                
+                alert_parts.append("\n".join(error_lines))
+
         # Add statistics section
         stats_lines = [f"📊 *Statistics*:"]
         stats_lines.append(f"• Total Events: {total_events:,}")
@@ -122,11 +148,30 @@ class AlertManager:
                 stats_lines.append(f"• Errors: {severity_str}")
         
         # Top hosts
-        by_host = stats.get("by_host", {})
-        if by_host:
-            top_hosts = sorted(by_host.items(), key=lambda x: x[1], reverse=True)[:3]
-            hosts_str = ", ".join([f"{host} ({count})" for host, count in top_hosts])
+        top_host_apps_dict = stats.get("top_host_apps", {})
+        if top_host_apps_dict:
+            top_hosts = sorted(top_host_apps_dict.items(), key=lambda x: x[1], reverse=True)[:3]
+            host_strs = []
+            for host_app, count in top_hosts:
+                if host_app.endswith("/-"):
+                    host_strs.append(f"{host_app[:-2]} ({count})")
+                else:
+                    host_strs.append(f"{host_app} ({count})")
+            hosts_str = ", ".join(host_strs)
             stats_lines.append(f"• Top Hosts: {hosts_str}")
+        else:
+            top_hosts_dict = stats.get("top_hosts", {})
+            if top_hosts_dict:
+                top_hosts = sorted(top_hosts_dict.items(), key=lambda x: x[1], reverse=True)[:3]
+                hosts_str = ", ".join([f"{host} ({count})" for host, count in top_hosts])
+                stats_lines.append(f"• Top Hosts: {hosts_str}")
+
+        # Top apps
+        top_apps_dict = stats.get("top_apps", {})
+        if top_apps_dict:
+            top_apps = sorted(top_apps_dict.items(), key=lambda x: x[1], reverse=True)[:3]
+            apps_str = ", ".join([f"{app} ({count})" for app, count in top_apps])
+            stats_lines.append(f"• Top Apps: {apps_str}")
         
         alert_parts.append("\n".join(stats_lines))
         
