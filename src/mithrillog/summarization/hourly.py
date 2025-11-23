@@ -47,6 +47,7 @@ class HourlySummarizer:
         severity_counter: Counter[str] = Counter()
         host_counter: Counter[str] = Counter()
         app_counter: Counter[str] = Counter()
+        host_app_counter: Counter[str] = Counter()
         total_events = 0
         unique_events = 0
         highlights: List[Dict[str, Any]] = []
@@ -78,6 +79,7 @@ class HourlySummarizer:
             severity_counter.update(meta.get("severity", {}))
             host_counter.update(meta.get("hosts", {}))
             app_counter.update(meta.get("apps", {}))
+            host_app_counter.update(meta.get("host_apps", {}))
             
             # Aggregate highlights by pattern_id
             for highlight in meta.get("highlights", []):
@@ -162,6 +164,7 @@ class HourlySummarizer:
             "by_severity": dict(severity_counter.most_common(5)),
             "top_hosts": dict(host_counter.most_common(5)),
             "top_apps": dict(app_counter.most_common(5)),
+            "top_host_apps": dict(host_app_counter.most_common(5)),
         }
 
         variables = {

@@ -43,7 +43,7 @@ prompts:
   highlight_analysis: ./prompts/highlight_analysis.txt
   trend: ./prompts/trend_analysis.txt
 web:
-  title: Afranet Flowinsight Log Console
+  title: Tebyan Flowinsight Log Console
 alert:
   enabled: true
   telegram_bot_token: "8409577730:AAGA8UfNTLp0_Zz5ECWVqulk2HDSiN7Bhrc"
