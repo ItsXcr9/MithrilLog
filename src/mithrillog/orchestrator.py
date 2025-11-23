@@ -80,16 +80,17 @@ class Orchestrator:
             await asyncio.sleep(max(0, (run_at_utc - now_utc).total_seconds()))
             await self._run_hourly(run_at_local - timedelta(hours=1))
 
-    async def _run_hourly(self, target: datetime) -> None:
+    async def _run_hourly(self, target: datetime, enable_alerting: bool = True) -> None:
         logger.info("Running hourly summary for %s", target)
         try:
             report = await asyncio.to_thread(self.hourly_summarizer.summarize_hour, target)
             # Check for alerts
-            await self.alert_manager.check_and_alert(
-                report.get("stats", {}), 
-                report.get("anomalies", ""),
-                report.get("highlights", [])
-            )
+            if enable_alerting:
+                await self.alert_manager.check_and_alert(
+                    report.get("stats", {}), 
+                    report.get("anomalies", ""),
+                    report.get("highlights", [])
+                )
         except Exception:  # noqa: BLE001
             logger.exception("Hourly summary failed for %s", target)
 
@@ -127,7 +128,7 @@ class Orchestrator:
             target = target.replace(minute=self.settings.summary.hourly_at_minute, second=0, microsecond=0)
             if target < now_local:
                 try:
-                    await self._run_hourly(target)
+                    await self._run_hourly(target, enable_alerting=False)
                 except Exception:  # noqa: BLE001
                     logger.exception("Catchup hourly summary failed for %s", target)
                 await asyncio.sleep(1)  # Small delay between summaries
