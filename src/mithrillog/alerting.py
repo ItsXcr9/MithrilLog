@@ -122,11 +122,12 @@ class AlertManager:
                 # Group by app to avoid repetition? Or just list top ones?
                 # Let's list top 5 error patterns
                 for item in error_highlights[:5]:
-                    app = item.get("app", "-")
+                    app = self._escape_markdown(item.get("app", "-"))
                     msg = item.get("message", "")
                     # Clean message if needed, but it should be cleaned by summarizer already
                     if len(msg) > 80:
                         msg = msg[:77] + "..."
+                    msg = self._escape_markdown(msg)
                     count = item.get("occurrences", 1)
                     error_lines.append(f"• *{app}*: {msg} ({count}x)")
                 
@@ -134,6 +135,7 @@ class AlertManager:
                     error_lines.append(f"• ... and {len(error_highlights) - 5} more errors")
                 
                 alert_parts.append("\n".join(error_lines))
+
 
         # Add statistics section
         stats_lines = [f"📊 *Statistics*:"]
@@ -180,3 +182,11 @@ class AlertManager:
             f"{self.web_title} Alert",
             "\n\n".join(alert_parts)
         )
+
+    @staticmethod
+    def _escape_markdown(text: str) -> str:
+        """Escape special characters for Telegram Markdown (v1)."""
+        chars = "_*[`"
+        for char in chars:
+            text = text.replace(char, f"\\{char}")
+        return text
