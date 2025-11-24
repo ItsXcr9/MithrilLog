@@ -1315,3 +1315,147 @@ function renderSearchResults(items) {
     `;
   }).join("");
 }
+
+// --- Live Log Tail Controller ---
+
+class LiveTailController {
+  constructor() {
+    this.container = document.getElementById("live-log-container");
+    this.toggleBtn = document.getElementById("live-toggle");
+    this.clearBtn = document.getElementById("live-clear");
+    this.statusIndicator = document.getElementById("live-status");
+    
+    this.eventSource = null;
+    this.isLive = false;
+    this.maxLines = 500; // Optimization: Keep DOM size manageable
+    
+    this.init();
+  }
+  
+  init() {
+    if (!this.toggleBtn) return;
+    
+    this.toggleBtn.addEventListener("click", () => this.toggle());
+    this.clearBtn.addEventListener("click", () => this.clear());
+  }
+  
+  toggle() {
+    if (this.isLive) {
+      this.stop();
+    } else {
+      this.start();
+    }
+  }
+  
+  start() {
+    if (this.isLive) return;
+    
+    this.isLive = true;
+    this.updateUI(true);
+    
+    // Clear empty state if present
+    if (this.container.querySelector(".empty-state")) {
+      this.container.innerHTML = "";
+    }
+    
+    // Use SSE with EventSource
+    const basePath = window.location.pathname.endsWith('/') 
+      ? window.location.pathname 
+      : window.location.pathname + '/';
+    this.eventSource = new EventSource(basePath + "logs/tail", { withCredentials: true });
+    
+    this.eventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        this.addLogLine(data);
+      } catch (e) {
+        console.error("Failed to parse live log:", e);
+      }
+    };
+    
+    this.eventSource.onerror = (err) => {
+      console.error("Live tail error:", err);
+      this.stop();
+      this.addSystemMessage("Connection lost. Live tail stopped.");
+    };
+  }
+  
+  stop() {
+    if (!this.isLive) return;
+    
+    this.isLive = false;
+    this.updateUI(false);
+    
+    if (this.pollInterval) {
+      clearInterval(this.pollInterval);
+      this.pollInterval = null;
+    }
+  }
+  
+  clear() {
+    this.container.innerHTML = "";
+    if (!this.isLive) {
+      this.container.innerHTML = '<div class="empty-state">Click "Start Live Tail" to stream logs in real-time.</div>';
+    }
+  }
+  
+  updateUI(isLive) {
+    this.toggleBtn.textContent = isLive ? "Stop Live Tail" : "Start Live Tail";
+    this.toggleBtn.classList.toggle("btn-danger", isLive);
+    this.toggleBtn.classList.toggle("btn-primary", !isLive);
+    
+    this.statusIndicator.textContent = isLive ? "Live" : "Paused";
+    this.statusIndicator.classList.toggle("live", isLive);
+    this.statusIndicator.classList.toggle("paused", !isLive);
+  }
+  
+  addLogLine(log) {
+    const line = document.createElement("div");
+    line.className = "log-line";
+    line.style.borderLeftColor = this.getSeverityColor(log.severity);
+    
+    const timestamp = new Date(log.timestamp || Date.now()).toLocaleTimeString();
+    
+    line.innerHTML = `
+      <span class="log-time">${timestamp}</span>
+      <span class="log-sev severity-${log.severity || 'info'}">${log.severity || 'INFO'}</span>
+      <span class="log-host">${log.host || '-'}</span>
+      <span class="log-app">${log.app || '-'}</span>
+      <span class="log-msg">${escapeHtml(log.message || '')}</span>
+    `;
+    
+    // Prepend to show newest first
+    this.container.prepend(line);
+    
+    // Optimization: Remove old lines
+    if (this.container.children.length > this.maxLines) {
+      this.container.lastElementChild.remove();
+    }
+  }
+  
+  addSystemMessage(msg) {
+    const line = document.createElement("div");
+    line.className = "log-line system-msg";
+    line.textContent = msg;
+    this.container.prepend(line);
+  }
+  
+  getSeverityColor(severity) {
+    const map = {
+      'emerg': '#ef4444',
+      'alert': '#ef4444',
+      'crit': '#ef4444',
+      'err': '#ef4444',
+      'error': '#ef4444',
+      'warn': '#f59e0b',
+      'warning': '#f59e0b',
+      'notice': '#3b82f6',
+      'info': '#3b82f6',
+      'debug': '#6b7280'
+    };
+    return map[severity?.toLowerCase()] || '#6b7280';
+  }
+}
+
+// Initialize Live Tail
+new LiveTailController();

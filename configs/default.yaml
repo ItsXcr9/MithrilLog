@@ -30,9 +30,9 @@ ingest:
   forward_to_host: api
   forward_to_port: 9999
 summary:
-  hourly_at_minute: 3
+  hourly_at_minute: 9
   daily_at_hour: 0
-  daily_at_minute: 6
+  daily_at_minute: 50
   report_dir: ./data/reports
 storage:
   sqlite_path: ./data/mithrillog.db
@@ -43,7 +43,7 @@ prompts:
   highlight_analysis: ./prompts/highlight_analysis.txt
   trend: ./prompts/trend_analysis.txt
 web:
-  title: Tebyan Flowinsight Log Console
+  title: Xcr9 Log Console
 alert:
   enabled: true
   telegram_bot_token: "8409577730:AAGA8UfNTLp0_Zz5ECWVqulk2HDSiN7Bhrc"
@@ -52,5 +52,5 @@ alert:
 cors:
   allowed_origins:
     - "https://mithrillog.xcr9.site"
-    - "http://localhost:9000"
-    - "http://127.0.0.1:9000"
+    - "http://localhost:9900"
+    - "http://127.0.0.1:9900"
