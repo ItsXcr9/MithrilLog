@@ -370,3 +370,168 @@ def search_logs(
         }
     }
 
+
+# --- Live Log Tail ---
+
+@app.get("/logs/tail")
+async def tail_logs(request: Request):
+    """Stream logs in real-time using Server-Sent Events (SSE)."""
+    from fastapi.responses import StreamingResponse
+    import asyncio
+    
+    settings = default_settings
+    bucket_dir = Path(settings.ingest.bucket_dir)
+    
+    async def log_streamer():
+        from mithrillog.utils.time import get_timezone
+        local_tz = get_timezone(settings.timezone)
+        
+        # Start from now
+        current_time = datetime.now(local_tz)
+        
+        # Keep track of the file we are reading
+        current_file_path = None
+        file_handle = None
+        last_keepalive = datetime.now()
+        
+        # Send initial connection message
+        yield ": connected\n\n"
+        
+        try:
+            while True:
+                if await request.is_disconnected():
+                    break
+                
+                # Send keep-alive comment every 15 seconds
+                if (datetime.now() - last_keepalive).total_seconds() > 15:
+                    yield ": keepalive\n\n"
+                    last_keepalive = datetime.now()
+                
+                # Determine current log file based on time
+                year = current_time.strftime("%Y")
+                month = current_time.strftime("%m")
+                day = current_time.strftime("%d")
+                hour = current_time.strftime("%H")
+                minute = current_time.strftime("%M")
+                
+                new_file_path = bucket_dir / year / month / day / hour / f"{minute}.ndjson"
+                
+                # If file changed (minute rolled over), close old and open new
+                if new_file_path != current_file_path:
+                    if file_handle:
+                        file_handle.close()
+                        file_handle = None
+                    
+                    current_file_path = new_file_path
+                    
+                    # Wait for file to exist if it's new
+                    if not current_file_path.exists():
+                        await asyncio.sleep(1)
+                        # Update time to check again
+                        current_time = datetime.now(local_tz)
+                        continue
+                        
+                    file_handle = current_file_path.open("r", encoding="utf-8")
+                    # Seek to end initially to only show NEW logs
+                    file_handle.seek(0, 2)
+                
+                # Read new lines
+                line = file_handle.readline()
+                if line:
+                    try:
+                        # Validate JSON before sending
+                        fast_json_loads(line)
+                        yield f"data: {line}\n\n"
+                    except ValueError:
+                        pass
+                else:
+                    # No new data, wait a bit
+                    await asyncio.sleep(0.5)
+                    
+                    # Check if we need to rotate (time passed)
+                    now = datetime.now(local_tz)
+                    if now.minute != current_time.minute:
+                        current_time = now
+                        
+        except Exception:
+            pass
+        finally:
+            if file_handle:
+                file_handle.close()
+
+
+    return StreamingResponse(
+        log_streamer(), 
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
+        }
+    )
+
+# --- Live Log Tail (Polling) ---
+
+@app.get("/logs/tail/poll")
+def tail_logs_poll(since: Optional[str] = Query(None)) -> dict:
+    """Poll for new logs since a given timestamp. Works through Cloudflare."""
+    settings = default_settings
+    bucket_dir = Path(settings.ingest.bucket_dir)
+    
+    from mithrillog.utils.time import get_timezone
+    local_tz = get_timezone(settings.timezone)
+    
+    # Get current time
+    now = datetime.now(local_tz)
+    
+    # If since is provided, start from there, otherwise start from now
+    if since:
+        try:
+            start_time = datetime.fromisoformat(since.replace('Z', '+00:00'))
+            if start_time.tzinfo is None:
+                start_time = start_time.replace(tzinfo=local_tz)
+        except:
+            start_time = now
+    else:
+        start_time = now
+    
+    logs = []
+    current = start_time
+    
+    # Look for logs from start_time to now (max 2 minutes)
+    while current <= now and (now - current).total_seconds() < 120:
+        year = current.strftime("%Y")
+        month = current.strftime("%m")
+        day = current.strftime("%d")
+        hour = current.strftime("%H")
+        minute = current.strftime("%M")
+        
+        file_path = bucket_dir / year / month / day / hour / f"{minute}.ndjson"
+        
+        if file_path.exists():
+            try:
+                with file_path.open("r", encoding="utf-8") as f:
+                    for line in f:
+                        if not line.strip():
+                            continue
+                        try:
+                            log = fast_json_loads(line)
+                            log_time = datetime.fromisoformat(log.get("timestamp", "").replace('Z', '+00:00'))
+                            if log_time > start_time:
+                                logs.append(log)
+                                if len(logs) >= 50:  # Limit to 50 logs per poll
+                                    break
+                        except:
+                            continue
+                if len(logs) >= 50:
+                    break
+            except:
+                pass
+        
+        current += timedelta(minutes=1)
+    
+    return {
+        "logs": logs,
+        "timestamp": now.isoformat(),
+        "count": len(logs)
+    }
