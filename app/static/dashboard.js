@@ -538,7 +538,7 @@ const buildTrendCard = (item) => {
   
   container.innerHTML = `
     <div class="trend-header">
-      <h2>📊 Trend Analysis</h2>
+      <h2>▦ Trend Analysis</h2>
       <p class="trend-date">${date} • 3-day comparison</p>
     </div>
     
@@ -548,22 +548,22 @@ const buildTrendCard = (item) => {
     
     <div class="trend-stats">
       <div class="stat-item ${newCount > 0 ? 'has-issues' : ''}">
-        <span class="stat-label">🆕 New</span>
+        <span class="stat-label">◆ New</span>
         <span class="stat-value">${newCount}</span>
       </div>
       <div class="stat-item ${ongoingCount > 0 ? 'has-issues' : ''}">
-        <span class="stat-label">🔄 Ongoing</span>
+        <span class="stat-label">○ Ongoing</span>
         <span class="stat-value">${ongoingCount}</span>
       </div>
       <div class="stat-item ${resolvedCount > 0 ? 'resolved' : ''}">
-        <span class="stat-label">✅ Resolved</span>
+        <span class="stat-label">✓ Resolved</span>
         <span class="stat-value">${resolvedCount}</span>
       </div>
     </div>
     
-    ${renderIssueList(details.new, 'New', '🆕')}
-    ${renderIssueList(details.ongoing, 'Ongoing', '🔄')}
-    ${renderIssueList(details.resolved, 'Resolved', '✅')}
+    ${renderIssueList(details.new, 'New', '◆')}
+    ${renderIssueList(details.ongoing, 'Ongoing', '○')}
+    ${renderIssueList(details.resolved, 'Resolved', '✓')}
   `;
   
   return container;
@@ -1304,11 +1304,11 @@ function renderSearchResults(items) {
     return `
       <div class="log-result">
         <div class="meta">
-          <span class="ts">⏰ ${timestamp}</span>
-          <span class="host">🖥️ ${log.host}</span>
-          <span class="app">📦 ${log.app || 'N/A'}</span>
-          <span class="sev ${sevClass}">⚠️ ${log.severity.toUpperCase()}</span>
-          ${log.user_id ? `<span class="user">👤 ${log.user_id}</span>` : ''}
+          <span class="ts">◐ ${timestamp}</span>
+          <span class="host">■ ${log.host}</span>
+          <span class="app">▫ ${log.app || 'N/A'}</span>
+          <span class="sev ${sevClass}">△ ${log.severity.toUpperCase()}</span>
+          ${log.user_id ? `<span class="user">● ${log.user_id}</span>` : ''}
         </div>
         <div class="msg">${escapeHtml(log.message)}</div>
       </div>
@@ -1323,11 +1323,14 @@ class LiveTailController {
     this.container = document.getElementById("live-log-container");
     this.toggleBtn = document.getElementById("live-toggle");
     this.clearBtn = document.getElementById("live-clear");
+    this.viewToggleBtn = document.getElementById("live-view-toggle");
+    this.historySelect = document.getElementById("live-history");
     this.statusIndicator = document.getElementById("live-status");
     
     this.eventSource = null;
     this.isLive = false;
     this.maxLines = 500; // Optimization: Keep DOM size manageable
+    this.viewMode = 'formatted'; // 'formatted' or 'raw'
     
     this.init();
   }
@@ -1337,6 +1340,10 @@ class LiveTailController {
     
     this.toggleBtn.addEventListener("click", () => this.toggle());
     this.clearBtn.addEventListener("click", () => this.clear());
+    
+    if (this.viewToggleBtn) {
+      this.viewToggleBtn.addEventListener("click", () => this.toggleViewMode());
+    }
   }
   
   toggle() {
@@ -1347,7 +1354,7 @@ class LiveTailController {
     }
   }
   
-  start() {
+  async start() {
     if (this.isLive) return;
     
     this.isLive = true;
@@ -1358,15 +1365,26 @@ class LiveTailController {
       this.container.innerHTML = "";
     }
     
+    // Load historical logs if requested
+    const historyMinutes = parseInt(this.historySelect?.value || '0', 10);
+    if (historyMinutes > 0) {
+      this.addSystemMessage(`Loading last ${historyMinutes} minutes of logs...`);
+      await this.loadHistory(historyMinutes);
+    }
+    
     // Use SSE with EventSource
     const basePath = window.location.pathname.endsWith('/') 
       ? window.location.pathname 
       : window.location.pathname + '/';
+    console.log(`[LiveTail] Connecting to: ${basePath}logs/tail`);
     this.eventSource = new EventSource(basePath + "logs/tail", { withCredentials: true });
     
     this.eventSource.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
+        // Ignore pings
+        if (data.type === 'ping') return;
+        
         this.addLogLine(data);
       } catch (e) {
         console.error("Failed to parse live log:", e);
@@ -1375,8 +1393,9 @@ class LiveTailController {
     
     this.eventSource.onerror = (err) => {
       console.error("Live tail error:", err);
-      this.stop();
-      this.addSystemMessage("Connection lost. Live tail stopped.");
+      console.log("EventSource readyState:", this.eventSource.readyState);
+      // Do NOT stop, let EventSource retry
+      this.addSystemMessage("Connection lost. Retrying...");
     };
   }
   
@@ -1386,9 +1405,9 @@ class LiveTailController {
     this.isLive = false;
     this.updateUI(false);
     
-    if (this.pollInterval) {
-      clearInterval(this.pollInterval);
-      this.pollInterval = null;
+    if (this.eventSource) {
+      this.eventSource.close();
+      this.eventSource = null;
     }
   }
   
@@ -1397,6 +1416,18 @@ class LiveTailController {
     if (!this.isLive) {
       this.container.innerHTML = '<div class="empty-state">Click "Start Live Tail" to stream logs in real-time.</div>';
     }
+  }
+  
+  toggleViewMode() {
+    this.viewMode = this.viewMode === 'formatted' ? 'raw' : 'formatted';
+    
+    // Update button text
+    if (this.viewToggleBtn) {
+      this.viewToggleBtn.textContent = this.viewMode === 'formatted' ? '▢ Raw JSON' : '✦ Formatted';
+    }
+    
+    // Optionally re-render existing logs (would require storing raw data)
+    // For now, just affects new logs
   }
   
   updateUI(isLive) {
@@ -1414,15 +1445,21 @@ class LiveTailController {
     line.className = "log-line";
     line.style.borderLeftColor = this.getSeverityColor(log.severity);
     
-    const timestamp = new Date(log.timestamp || Date.now()).toLocaleTimeString();
-    
-    line.innerHTML = `
-      <span class="log-time">${timestamp}</span>
-      <span class="log-sev severity-${log.severity || 'info'}">${log.severity || 'INFO'}</span>
-      <span class="log-host">${log.host || '-'}</span>
-      <span class="log-app">${log.app || '-'}</span>
-      <span class="log-msg">${escapeHtml(log.message || '')}</span>
-    `;
+    if (this.viewMode === 'raw') {
+      // Raw JSON view
+      line.innerHTML = `<pre class="log-raw">${escapeHtml(JSON.stringify(log, null, 2))}</pre>`;
+    } else {
+      // Formatted view
+      const timestamp = new Date(log.timestamp || Date.now()).toLocaleTimeString();
+      
+      line.innerHTML = `
+        <span class="log-time">${timestamp}</span>
+        <span class="log-sev severity-${log.severity || 'info'}">${log.severity || 'INFO'}</span>
+        <span class="log-host">${log.host || '-'}</span>
+        <span class="log-app">${log.app || '-'}</span>
+        <span class="log-msg">${escapeHtml(log.message || '')}</span>
+      `;
+    }
     
     // Prepend to show newest first
     this.container.prepend(line);
@@ -1454,6 +1491,40 @@ class LiveTailController {
       'debug': '#6b7280'
     };
     return map[severity?.toLowerCase()] || '#6b7280';
+  }
+  
+  async loadHistory(minutes) {
+    try {
+      // Use the search endpoint to get recent logs
+      // Search for all logs (empty query matches everything) in the last N minutes
+      const hours = Math.ceil(minutes / 60); // Convert to hours for API
+      const response = await fetch(`logs/search?q= &hours=${hours}&limit=500`);
+      
+      if (!response.ok) {
+        this.addSystemMessage('Failed to load history');
+        return;
+      }
+      
+      const data = await response.json();
+      const logs = data.items || [];
+      
+      // Filter to exact minute range (API gives hours)
+      const cutoffTime = Date.now() - (minutes * 60 * 1000);
+      const recentLogs = logs.filter(log => {
+        const logTime = new Date(log.timestamp).getTime();
+        return logTime >= cutoffTime;
+      });
+      
+      // Add logs in reverse order (oldest first), so newest are on top
+      for (const log of recentLogs.reverse()) {
+        this.addLogLine(log);
+      }
+      
+      this.addSystemMessage(`Loaded ${recentLogs.length} historical logs. Now streaming live...`);
+    } catch (error) {
+      console.error('Failed to load history:', error);
+      this.addSystemMessage('Error loading history. Starting live stream...');
+    }
   }
 }
 

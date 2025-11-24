@@ -113,3 +113,23 @@
   }
 }
 
+/* Raw JSON view styling for live tail */
+.log-raw {
+  margin: 0;
+  padding: 0.75rem;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 4px;
+  font-family: var(--font-mono, 'Courier New', monospace);
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: #a8dadc;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.log-line:has(.log-raw) {
+  padding: 0.5rem;
+}
+
+

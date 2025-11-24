@@ -47,6 +47,12 @@
   --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* Global overflow prevention */
+* {
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
 * {
 /*  margin: 0; */
   padding: 0;
@@ -271,6 +277,8 @@ body {
   border-radius: var(--radius-md);
   padding: 1rem;
   transition: var(--transition);
+  min-width: 0;
+  overflow: hidden;
 }
 
 .focus-highlight:hover {
@@ -285,11 +293,16 @@ body {
   color: var(--text-primary);
   font-size: 0.9rem;
   margin: 0.5rem 0;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  overflow: hidden;
 }
 
 .focus-highlight small {
   color: var(--text-tertiary);
   font-size: 0.8rem;
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 /* Section Styles */
@@ -333,6 +346,20 @@ body {
   align-items: center;
   gap: 0.75rem;
   flex-wrap: wrap;
+}
+
+.controls label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  white-space: nowrap;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.controls select {
+  min-width: auto;
+  max-width: 150px;
 }
 
 .control-label {
@@ -401,11 +428,15 @@ body {
   font-weight: 600;
   color: var(--text-primary);
   margin: 0;
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 .card-meta {
   font-size: 0.8rem;
   color: var(--text-tertiary);
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 .card-summary {
@@ -415,6 +446,7 @@ body {
   margin-bottom: 1rem;
   display: -webkit-box;
   -webkit-line-clamp: 3;
+  line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -852,6 +884,8 @@ body {
   background: rgba(255, 255, 255, 0.02);
   border-radius: 2px;
   align-items: baseline;
+  flex-wrap: wrap;
+  min-width: 0;
 }
 
 .log-line:hover {
@@ -875,12 +909,17 @@ body {
 .log-host, .log-app {
   color: var(--text-secondary);
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 150px;
 }
 
 .log-msg {
   color: var(--text-primary);
-  word-break: break-all;
+  word-break: break-word;
+  overflow-wrap: break-word;
   flex: 1;
+  min-width: 0;
 }
 
 .system-msg {
@@ -1381,9 +1420,85 @@ footer code {
   .section-header {
     flex-direction: column;
     align-items: stretch;
+    gap: 1rem;
+    padding: 1rem;
   }
   
   .controls {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  
+  .controls label {
+    flex: 1 1 auto;
+    min-width: 120px;
+  }
+  
+  .controls select {
+    flex: 1;
+    min-width: 80px;
+  }
+  
+  .controls button {
+    flex: 1 1 auto;
+    min-width: 100px;
+  }
+  
+  .log-line {
+    font-size: 0.7rem;
+    gap: 0.5rem;
+    padding: 0.25rem;
+  }
+  
+  .log-host, .log-app {
+    max-width: 100px;
+  }
+  
+  .log-time {
+    font-size: 0.65rem;
+  }
+  
+  .focus-metrics {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .trend-stats {
+    grid-template-columns: 1fr;
+  }
+  
+  .ai-highlights {
+    padding: 1.5rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .section-header {
+    padding: 0.75rem;
+  }
+  
+  .controls {
+    width: 100%;
+  }
+  
+  .controls label,
+  .controls select,
+  .controls button {
+    width: 100%;
+    flex: 1 1 100%;
+  }
+  
+  .log-line {
     flex-direction: column;
+    gap: 0.25rem;
+    align-items: flex-start;
+  }
+  
+  .log-host, .log-app {
+    max-width: none;
+  }
+  
+  .focus-metrics {
+    grid-template-columns: 1fr;
   }
 }
