@@ -35,11 +35,20 @@
 
       <section class="live-tail-panel glass">
         <div class="section-header">
-          <h2>⚡ Live Tail</h2>
+          <h2>◆ Live Tail</h2>
           <div class="controls">
             <span id="live-status" class="status-indicator paused">Paused</span>
+            <label>
+              <select id="live-history">
+                <option value="0">Live only</option>
+                <option value="10">Last 10 min</option>
+                <option value="30" selected>Last 30 min</option>
+                <option value="60">Last 60 min</option>
+              </select>
+            </label>
             <button id="live-toggle" class="btn-primary">Start Live Tail</button>
             <button id="live-clear">Clear</button>
+            <button id="live-view-toggle" title="Toggle between formatted and raw JSON view">▢ Raw JSON</button>
           </div>
         </div>
         <div id="live-log-container" class="live-log-container">
@@ -75,7 +84,7 @@
 
       <section class="search-panel glass">
         <div class="section-header">
-          <h2>🔍 Log Search</h2>
+          <h2>○ Log Search</h2>
           <div class="controls">
             <input type="text" id="search-input" placeholder="Search logs (IP, User ID, Error, Message)..." />
             <select id="search-hours">
@@ -136,7 +145,7 @@
       <section class="trend-panel glass" id="trend-panel">
         <div class="section-header">
           <div>
-            <h2>📊 Trend Analysis</h2>
+            <h2>▦ Trend Analysis</h2>
             <p class="section-desc">3-day pattern comparison</p>
           </div>
           <div class="controls">

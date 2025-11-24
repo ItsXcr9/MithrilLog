@@ -7,6 +7,7 @@ from typing import List, Optional
 from datetime import datetime, timedelta
 from functools import lru_cache
 from time import time
+import traceback
 
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse
@@ -386,78 +387,86 @@ async def tail_logs(request: Request):
         from mithrillog.utils.time import get_timezone
         local_tz = get_timezone(settings.timezone)
         
-        # Start from now
-        current_time = datetime.now(local_tz)
-        
-        # Keep track of the file we are reading
-        current_file_path = None
-        file_handle = None
-        last_keepalive = datetime.now()
-        
-        # Send initial connection message
+        # Send initial connection message immediately
+        print(f"SSE: Client connected from {request.client.host}")
         yield ": connected\n\n"
+        
+        # Track file position for each file we're reading
+        file_positions = {}  # {file_path: byte_offset}
+        last_keepalive = time()
         
         try:
             while True:
                 if await request.is_disconnected():
+                    print(f"SSE: Client disconnected from {request.client.host}")
                     break
                 
-                # Send keep-alive comment every 15 seconds
-                if (datetime.now() - last_keepalive).total_seconds() > 15:
-                    yield ": keepalive\n\n"
-                    last_keepalive = datetime.now()
+                # Send keep-alive event every 15 seconds
+                if (time() - last_keepalive) > 15:
+                    yield f"data: {json.dumps({'type': 'ping', 'timestamp': time()})}\n\n"
+                    last_keepalive = time()
                 
                 # Determine current log file based on time
-                year = current_time.strftime("%Y")
-                month = current_time.strftime("%m")
-                day = current_time.strftime("%d")
-                hour = current_time.strftime("%H")
-                minute = current_time.strftime("%M")
+                now = datetime.now(local_tz)
+                year = now.strftime("%Y")
+                month = now.strftime("%m")
+                day = now.strftime("%d")
+                hour = now.strftime("%H")
+                minute = now.strftime("%M")
                 
-                new_file_path = bucket_dir / year / month / day / hour / f"{minute}.ndjson"
+                current_file_path = bucket_dir / year / month / day / hour / f"{minute}.ndjson"
                 
-                # If file changed (minute rolled over), close old and open new
-                if new_file_path != current_file_path:
-                    if file_handle:
-                        file_handle.close()
-                        file_handle = None
-                    
-                    current_file_path = new_file_path
-                    
-                    # Wait for file to exist if it's new
-                    if not current_file_path.exists():
-                        await asyncio.sleep(1)
-                        # Update time to check again
-                        current_time = datetime.now(local_tz)
-                        continue
-                        
-                    file_handle = current_file_path.open("r", encoding="utf-8")
-                    # Seek to end initially to only show NEW logs
-                    file_handle.seek(0, 2)
+                # Collect new logs to send as a batch
+                new_logs = []
                 
-                # Read new lines
-                line = file_handle.readline()
-                if line:
+                if current_file_path.exists():
                     try:
-                        # Validate JSON before sending
-                        fast_json_loads(line)
-                        yield f"data: {line}\n\n"
-                    except ValueError:
-                        pass
-                else:
-                    # No new data, wait a bit
-                    await asyncio.sleep(0.5)
+                        # Get the last read position for this file
+                        last_position = file_positions.get(str(current_file_path), 0)
+                        
+                        # Open file, seek to last position, read new lines
+                        with current_file_path.open("r", encoding="utf-8") as f:
+                            f.seek(last_position)
+                            
+                            # Read all new lines
+                            for line in f:
+                                line = line.strip()
+                                if not line:
+                                    continue
+                                
+                                try:
+                                    # Validate JSON
+                                    fast_json_loads(line)
+                                    new_logs.append(line)
+                                except ValueError:
+                                    # Skip invalid JSON
+                                    continue
+                            
+                            # Update position for this file
+                            file_positions[str(current_file_path)] = f.tell()
                     
-                    # Check if we need to rotate (time passed)
-                    now = datetime.now(local_tz)
-                    if now.minute != current_time.minute:
-                        current_time = now
+                    except Exception as e:
+                        print(f"SSE: Error reading {current_file_path}: {e}")
+                
+                # Send all new logs as individual SSE events
+                if new_logs:
+                    print(f"SSE: Sending batch of {len(new_logs)} logs")
+                    for log_line in new_logs:
+                        yield f"data: {log_line}\n\n"
+                
+                # Clean up old file positions (keep only last 5 files)
+                if len(file_positions) > 5:
+                    # Sort by file path (which includes timestamp) and keep the most recent
+                    sorted_files = sorted(file_positions.keys(), reverse=True)
+                    file_positions = {k: file_positions[k] for k in sorted_files[:5]}
+                
+                # Wait 1 second before next batch check
+                await asyncio.sleep(1.0)
                         
         except Exception:
-            pass
+            traceback.print_exc()
         finally:
-            if file_handle:
-                file_handle.close()
+            print(f"SSE: Stream ended for {request.client.host}")
 
 
     return StreamingResponse(
@@ -469,69 +478,3 @@ async def tail_logs(request: Request):
             "Connection": "keep-alive",
         }
     )
-
-# --- Live Log Tail (Polling) ---
-
-@app.get("/logs/tail/poll")
-def tail_logs_poll(since: Optional[str] = Query(None)) -> dict:
-    """Poll for new logs since a given timestamp. Works through Cloudflare."""
-    settings = default_settings
-    bucket_dir = Path(settings.ingest.bucket_dir)
-    
-    from mithrillog.utils.time import get_timezone
-    local_tz = get_timezone(settings.timezone)
-    
-    # Get current time
-    now = datetime.now(local_tz)
-    
-    # If since is provided, start from there, otherwise start from now
-    if since:
-        try:
-            start_time = datetime.fromisoformat(since.replace('Z', '+00:00'))
-            if start_time.tzinfo is None:
-                start_time = start_time.replace(tzinfo=local_tz)
-        except:
-            start_time = now
-    else:
-        start_time = now
-    
-    logs = []
-    current = start_time
-    
-    # Look for logs from start_time to now (max 2 minutes)
-    while current <= now and (now - current).total_seconds() < 120:
-        year = current.strftime("%Y")
-        month = current.strftime("%m")
-        day = current.strftime("%d")
-        hour = current.strftime("%H")
-        minute = current.strftime("%M")
-        
-        file_path = bucket_dir / year / month / day / hour / f"{minute}.ndjson"
-        
-        if file_path.exists():
-            try:
-                with file_path.open("r", encoding="utf-8") as f:
-                    for line in f:
-                        if not line.strip():
-                            continue
-                        try:
-                            log = fast_json_loads(line)
-                            log_time = datetime.fromisoformat(log.get("timestamp", "").replace('Z', '+00:00'))
-                            if log_time > start_time:
-                                logs.append(log)
-                                if len(logs) >= 50:  # Limit to 50 logs per poll
-                                    break
-                        except:
-                            continue
-                if len(logs) >= 50:
-                    break
-            except:
-                pass
-        
-        current += timedelta(minutes=1)
-    
-    return {
-        "logs": logs,
-        "timestamp": now.isoformat(),
-        "count": len(logs)
-    }
