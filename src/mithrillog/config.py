@@ -142,6 +142,17 @@ class CorsConfig(BaseModel):
     allowed_origins: list[str] = ["*"]
 
 
+class LoggingPatternConfig(BaseModel):
+    pattern: str
+    action: Literal["SUPPRESS", "ALLOW", "RECLASSIFY"]
+    new_level: Optional[str] = None
+    extra_fields: dict[str, Any] = Field(default_factory=dict)
+
+
+class LoggingConfig(BaseModel):
+    patterns: list[LoggingPatternConfig] = Field(default_factory=list)
+
+
 class Settings(BaseModel):
     environment: Literal["dev", "prod"] = "dev"
     llm: LLMConfig = LLMConfig()
@@ -152,6 +163,7 @@ class Settings(BaseModel):
     web: WebConfig = WebConfig()
     alert: AlertConfig = AlertConfig()
     cors: CorsConfig = CorsConfig()
+    logging: LoggingConfig = LoggingConfig()
     timezone: str = "UTC"
 
     @classmethod

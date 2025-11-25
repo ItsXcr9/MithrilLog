@@ -11,7 +11,7 @@ from .alerting import AlertManager
 from .config import Settings, default_settings
 from .ingestion import BloomDeduper, IngestServer, ReservoirSampler
 from .llm import LLMClient
-from .logging import configure_logging
+from .logging import LogAction, LogPattern, configure_logging
 from .storage import JournalWriter
 from .state_store import StateStore
 from .summarization import DailySummarizer, HourlySummarizer, TrendSummarizer
@@ -22,8 +22,21 @@ logger = logging.getLogger("mithrillog.orchestrator")
 
 class Orchestrator:
     def __init__(self, settings: Optional[Settings] = None) -> None:
-        configure_logging()
         self.settings = settings or default_settings
+        
+        # Configure logging with patterns from settings
+        patterns = []
+        for p in self.settings.logging.patterns:
+            patterns.append(
+                LogPattern(
+                    pattern=p.pattern,
+                    action=LogAction[p.action],
+                    new_level=p.new_level,
+                    extra_fields=p.extra_fields,
+                )
+            )
+        configure_logging(patterns=patterns)
+        
         self.local_tz = get_timezone(self.settings.timezone)
         self.journal = JournalWriter(
             Path(self.settings.ingest.bucket_dir), timezone_name=self.settings.timezone

@@ -511,6 +511,7 @@ const buildTrendCard = (item) => {
           const lines = message.split('\n');
           const errorType = lines[0] || 'Unknown Error';
           const stackTrace = lines.slice(1).join('\n');
+          const fullContent = escapeHtml(message);
           
           return `
             <div class="error-explanation">
@@ -519,6 +520,9 @@ const buildTrendCard = (item) => {
                 <div class="error-title">
                   <span class="pill severity-${issue.severity || 'info'}">${issue.severity || 'info'}</span>
                   <span class="error-type">${escapeHtml(errorType)}</span>
+                  <div class="error-header-actions">
+                    <button class="copy-btn" data-content="${fullContent}">Copy</button>
+                  </div>
                 </div>
                 ${stackTrace ? `
                   <details class="error-details">
@@ -538,7 +542,6 @@ const buildTrendCard = (item) => {
   
   container.innerHTML = `
     <div class="trend-header">
-      <h2>▦ Trend Analysis</h2>
       <p class="trend-date">${date} • 3-day comparison</p>
     </div>
     
@@ -565,6 +568,21 @@ const buildTrendCard = (item) => {
     ${renderIssueList(details.ongoing, 'Ongoing', '○')}
     ${renderIssueList(details.resolved, 'Resolved', '✓')}
   `;
+  
+  // Add event listeners for copy buttons
+  container.querySelectorAll('.copy-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const content = btn.dataset.content;
+      navigator.clipboard.writeText(content).then(() => {
+        const originalText = btn.textContent;
+        btn.textContent = 'Copied!';
+        setTimeout(() => {
+          btn.textContent = originalText;
+        }, 2000);
+      });
+    });
+  });
   
   return container;
 };
