@@ -1191,13 +1191,13 @@ main {
 /* Controls */
 .stack {
   display: flex;
-  flex-direction: column;
+/*  flex-direction: column; */
   gap: 0.75rem;
 }
 
 .controls label {
   display: flex;
-  flex-direction: column;
+  /*flex-direction: column;*/
   gap: 0.25rem;
   font-size: 0.875rem;
   color: var(--text-secondary);

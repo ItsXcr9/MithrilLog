@@ -19,6 +19,11 @@ projects:
     password: "afranet"
     upstream_url: "http://127.0.0.1:9700"
 
+  - id: project5
+    name: "Project mj"
+    password: "mj"
+    upstream_url: "http://127.0.0.1:9600"
+
 security:
   secret_key: "xcr9session"
   session_expire_minutes: 60
@@ -28,3 +33,12 @@ cors:
     - "https://mithrillog.xcr9.site"
     - "http://localhost:9000"
     - "http://127.0.0.1:9000"
+    - "http://127.0.0.1:9600"
+    - "http://127.0.0.1:9700"
+    - "http://127.0.0.1:9800"
+    - "http://127.0.0.1:9900"
+    - "http://localhost:9600"
+    - "http://localhost:9700"
+    - "http://localhost:9800"
+    - "http://localhost:9900"
+
