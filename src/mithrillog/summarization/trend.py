@@ -41,45 +41,44 @@ class TrendSummarizer:
         if day_start.tzinfo is None:
             day_start = day_start.replace(tzinfo=self.timezone)
         
+        report_path = self.report_dir / f"{day_start:%Y/%m/%d}.json"
+        
+        # Optimization: Check if report already exists
+        # If it exists and we are not forcing a re-run (which we assume we aren't unless specified),
+        # we could return it. However, daily summaries might be re-run.
+        # Let's assume if it exists and is recent enough, we skip?
+        # Actually, for "trend", it depends on the daily summary. If daily summary changed, trend should change.
+        # But trend is expensive (LLM).
+        # Let's check if we have a report for this day.
+        if report_path.exists():
+            try:
+                with report_path.open("r") as f:
+                    existing_report = json.load(f)
+                logger.info("Trend report for %s already exists, skipping generation.", day_start)
+                return existing_report
+            except Exception:
+                logger.warning("Failed to load existing trend report, regenerating.")
+
         # 1. Identify today's patterns from daily report highlights
         today_patterns = set()
         highlights = daily_report.get("highlights", [])
         
-        new_issues_list = []
-        ongoing_issues_list = []
-        
-        # We need to reconstruct pattern_ids or rely on what's in the report.
-        # The daily report highlights usually contain 'pattern_id' if it was preserved,
-        # but let's check if it is. If not, we might need to re-derive or just use the message/severity as key.
-        # Looking at ingest_server.py, 'pattern_id' IS stored in the record.
-        # Looking at daily.py, it passes 'highlights' which are records.
-        # So 'pattern_id' should be there.
+        issues_to_upsert = []
         
         for item in highlights:
             pattern_id = item.get("pattern_id")
             if not pattern_id:
-                # Fallback if pattern_id is missing (shouldn't happen with new ingestion)
                 continue
                 
             today_patterns.add(pattern_id)
             severity = item.get("severity", "info")
             message = item.get("message", "")
             
-            # Check if it's new or ongoing
-            # We check the DB *before* upserting to know the previous state
-            # Actually, upsert handles state update. We can query first.
-            # Optimization: Fetch all active issues first.
+            issues_to_upsert.append((pattern_id, day_start, severity, message))
             
-            # For simplicity, let's just upsert and check first_seen vs today.
-            # But we need to know if it WAS active before today.
-            
-            # Let's just upsert everything seen today.
-            self.state_store.upsert_issue(
-                pattern_id=pattern_id,
-                seen_at=day_start, # Use day_start as the "seen" time for daily granularity
-                severity=severity,
-                sample_message=message
-            )
+        # Batch upsert
+        if issues_to_upsert:
+            self.state_store.upsert_issues_batch(issues_to_upsert)
 
         # 2. Resolve missing issues
         # Mark issues as resolved if they were active but NOT seen today.

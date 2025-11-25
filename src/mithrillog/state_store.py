@@ -29,6 +29,9 @@ class StateStore:
                 )
                 """
             )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_issue_status_last_seen ON issue_state (status, last_seen)"
+            )
             conn.commit()
 
     def upsert_issue(
@@ -40,36 +43,48 @@ class StateStore:
     ) -> None:
         """
         Update an issue's state.
-        If new, insert as active.
-        If existing, update last_seen and ensure status is active.
         """
-        seen_at_iso = seen_at.isoformat()
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                "SELECT first_seen FROM issue_state WHERE pattern_id = ?", (pattern_id,)
-            )
-            row = cursor.fetchone()
+        self.upsert_issues_batch([(pattern_id, seen_at, severity, sample_message)])
 
-            if row:
-                # Update existing
-                cursor.execute(
-                    """
-                    UPDATE issue_state 
-                    SET last_seen = ?, status = 'active', severity = ?, sample_message = ?
-                    WHERE pattern_id = ?
-                    """,
-                    (seen_at_iso, severity, sample_message, pattern_id),
-                )
-            else:
-                # Insert new
-                cursor.execute(
-                    """
-                    INSERT INTO issue_state (pattern_id, first_seen, last_seen, status, severity, sample_message)
-                    VALUES (?, ?, ?, 'active', ?, ?)
-                    """,
-                    (pattern_id, seen_at_iso, seen_at_iso, severity, sample_message),
-                )
+    def upsert_issues_batch(
+        self,
+        issues: List[tuple[str, datetime, str, str]],
+    ) -> None:
+        """
+        Batch update issues state.
+        issues: List of (pattern_id, seen_at, severity, sample_message)
+        """
+        if not issues:
+            return
+
+        with sqlite3.connect(self.db_path) as conn:
+            # Use ON CONFLICT to handle upsert efficiently
+            # We want to:
+            # 1. Update last_seen, severity, sample_message
+            # 2. Set status to 'active'
+            # 3. Keep first_seen as is
+            
+            # Prepare data for executemany
+            # (pattern_id, first_seen, last_seen, status, severity, sample_message)
+            # ON CONFLICT DO UPDATE ...
+            
+            data = []
+            for pid, seen_at, sev, msg in issues:
+                seen_at_iso = seen_at.isoformat()
+                data.append((pid, seen_at_iso, seen_at_iso, 'active', sev, msg))
+
+            conn.executemany(
+                """
+                INSERT INTO issue_state (pattern_id, first_seen, last_seen, status, severity, sample_message)
+                VALUES (?, ?, ?, ?, ?, ?)
+                ON CONFLICT(pattern_id) DO UPDATE SET
+                    last_seen = excluded.last_seen,
+                    status = 'active',
+                    severity = excluded.severity,
+                    sample_message = excluded.sample_message
+                """,
+                data
+            )
             conn.commit()
 
     def get_active_issues(self) -> List[Dict[str, Any]]:
