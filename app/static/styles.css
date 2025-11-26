@@ -617,13 +617,14 @@ body {
 }
 
 .trend-summary {
-  background: var(--bg-tertiary);
-  border-left: 3px solid var(--accent-primary);
+  background: rgba(28, 44, 68, 0.8);
+  /*border-left: 3px solid var(--accent-primary);*/
   border-radius: var(--radius-md);
-  padding: 1.25rem;
+  padding: 3.25rem;
   margin-bottom: 1.5rem;
   color: var(--text-secondary);
   line-height: 1.7;
+  box-shadow: var(--shadow-lg);
 }
 
 .trend-stats {
@@ -650,11 +651,13 @@ body {
 .stat-item.has-issues {
   border-color: var(--error-border);
   background: var(--error-bg);
+  box-shadow: var(--shadow-lg);
 }
 
 .stat-item.resolved {
   border-color: var(--success-border);
   background: var(--success-bg);
+  box-shadow: var(--shadow-lg);
 }
 
 .stat-label {
@@ -689,7 +692,7 @@ body {
   gap: 1rem;
   margin-bottom: 1rem;
   padding: 1.25rem;
-  background: var(--bg-tertiary);
+  background: rgba(30, 43, 65, 1);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
   transition: var(--transition);
@@ -698,7 +701,7 @@ body {
 
 .error-explanation:hover {
   border-color: var(--border-medium);
-  background: var(--bg-hover);
+  background: rgba(37, 52, 78, 1);
   transform: translateX(4px);
 }
 
@@ -1200,12 +1203,16 @@ body {
 
 /* Glass Effect */
 .glass {
-  background: var(--surface);
+  /* background: var(--surface); */
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-lg);
+}
+
+header.glass {
+  background: var(--surface);
 }
 
 /* Main Layout */
