@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  
+  <!-- Primary Meta Tags -->
+  <title>MithrilLog - Real-Time Log Management & Analytics Platform | Xcr9</title>
+  <meta name="title" content="MithrilLog - Real-Time Log Management & Analytics Platform | Xcr9" />
+  <meta name="description" content="AI-powered log management platform with real-time analysis, intelligent trend detection, and instant Telegram alerts. 10x cheaper than Datadog. Start at $29/month." />
+  <meta name="keywords" content="log management, log analytics, real-time monitoring, log aggregation, observability, Datadog alternative, cost-effective logging, AI log analysis" />
+  <meta name="robots" content="index, follow" />
+  <link rel="canonical" href="https://xcr9.site/mithrillog.html" />
+  
+  <!-- Open Graph / Facebook -->
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://xcr9.site/mithrillog.html" />
+  <meta property="og:title" content="MithrilLog - Real-Time Log Management Platform" />
+  <meta property="og:description" content="AI-powered log management with real-time analysis, trend detection, and instant alerts. 10x cheaper than Datadog." />
+  <meta property="og:image" content="https://xcr9.site/xcr9_logo.svg" />
+  
+  <!-- Twitter -->
+  <meta property="twitter:card" content="summary_large_image" />
+  <meta property="twitter:url" content="https://xcr9.site/mithrillog.html" />
+  <meta property="twitter:title" content="MithrilLog - Real-Time Log Management Platform" />
+  <meta property="twitter:description" content="AI-powered log management with real-time analysis, trend detection, and instant alerts." />
+  <meta property="twitter:image" content="https://xcr9.site/xcr9_logo.svg" />
+  
+  <!-- Favicon -->
+  <link rel="icon" type="image/svg+xml" href="/xcr9_logo.svg" />
+  
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    
+    * {
+      font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
+    }
+
+    body {
+      overflow-x: hidden;
+      background: #000000;
+      color: #f5f5f7;
+    }
+
+    .glass {
+      background: rgba(29, 29, 31, 0.72);
+      backdrop-filter: saturate(180%) blur(20px);
+      border: 0.5px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .glass-strong {
+      background: rgba(29, 29, 31, 0.85);
+      backdrop-filter: saturate(180%) blur(20px);
+      border: 0.5px solid rgba(255, 255, 255, 0.15);
+    }
+
+    .lift {
+      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .lift:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+    }
+
+    .gradient-text {
+      background: linear-gradient(90deg, #f5f5f7 0%, #86868b 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .gradient-purple {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+
+    .gradient-blue {
+      background: linear-gradient(135deg, #0071e3 0%, #005bb5 100%);
+    }
+
+    ::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: #000000;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #424245;
+      border-radius: 10px;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .fade-in {
+      animation: fadeIn 0.8s ease-out;
+    }
+
+    @keyframes pulse-glow {
+      0%, 100% { box-shadow: 0 0 20px rgba(102, 126, 234, 0.4); }
+      50% { box-shadow: 0 0 40px rgba(102, 126, 234, 0.6); }
+    }
+
+    .pulse-glow {
+      animation: pulse-glow 2s ease-in-out infinite;
+    }
+  </style>
+</head>
+
+<body class="bg-black text-white">
+  <!-- Navigation -->
+  <nav class="glass-strong fixed w-full top-0 z-50">
+    <div class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+      <a href="index.html" class="flex items-center space-x-2">
+        <span class="text-2xl font-bold gradient-text">Xcr9</span>
+      </a>
+      <div class="flex items-center space-x-8">
+        <a href="services.html" class="hover:text-blue-500 transition">Services</a>
+        <a href="mithrillog.html" class="text-blue-500">MithrilLog</a>
+        <a href="contact.html" class="hover:text-blue-500 transition">Contact</a>
+        <a href="#pricing" class="gradient-blue px-6 py-2 rounded-full hover:opacity-90 transition">Get Started</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Hero Section -->
+  <section class="min-h-screen flex items-center justify-center px-6 pt-20">
+    <div class="max-w-6xl mx-auto text-center fade-in">
+      <div class="inline-block px-4 py-2 glass rounded-full mb-6">
+        <span class="text-blue-400">🛡️ Enterprise-Grade Log Management</span>
+      </div>
+      <h1 class="text-6xl md:text-7xl font-bold mb-6 leading-tight">
+        Real-Time Log Intelligence<br/>
+        <span class="gradient-text">10x Cheaper Than Datadog</span>
+      </h1>
+      <p class="text-xl text-gray-400 mb-12 max-w-3xl mx-auto leading-relaxed">
+        AI-powered log management with real-time analysis, intelligent trend detection, and instant Telegram alerts. 
+        Built for modern teams who need powerful insights without enterprise costs.
+      </p>
+      <div class="flex items-center justify-center space-x-6">
+        <a href="#pricing" class="gradient-blue px-8 py-4 rounded-full text-lg font-semibold pulse-glow">
+          Start Free Trial
+        </a>
+        <a href="#features" class="glass-strong px-8 py-4 rounded-full text-lg font-semibold lift">
+          See Features
+        </a>
+      </div>
+      
+      <!-- Stats -->
+      <div class="grid grid-cols-3 gap-8 mt-20 max-w-3xl mx-auto">
+        <div class="glass p-6 rounded-2xl">
+          <div class="text-4xl font-bold gradient-text">50M+</div>
+          <div class="text-gray-400 mt-2">Events/Day</div>
+        </div>
+        <div class="glass p-6 rounded-2xl">
+          <div class="text-4xl font-bold gradient-text">~1ms</div>
+          <div class="text-gray-400 mt-2">Ingestion</div>
+        </div>
+        <div class="glass p-6 rounded-2xl">
+          <div class="text-4xl font-bold gradient-text">90%</div>
+          <div class="text-gray-400 mt-2">Cost Savings</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features Section -->
+  <section id="features" class="py-32 px-6">
+    <div class="max-w-7xl mx-auto">
+      <div class="text-center mb-20">
+        <h2 class="text-5xl font-bold mb-6">Why MithrilLog?</h2>
+        <p class="text-xl text-gray-400 max-w-2xl mx-auto">
+          Everything you need for production-grade log management, without the enterprise price tag
+        </p>
+      </div>
+
+      <div class="grid md:grid-cols-3 gap-8">
+        <!-- Feature 1 -->
+        <div class="glass-strong p-8 rounded-3xl lift">
+          <div class="text-4xl mb-4">🔥</div>
+          <h3 class="text-2xl font-bold mb-4">Live Log Tail</h3>
+          <p class="text-gray-400 leading-relaxed">
+            Real-time log streaming with Server-Sent Events. Watch your logs flow in as they happen, 
+            with zero delay and beautiful syntax highlighting.
+          </p>
+        </div>
+
+        <!-- Feature 2 -->
+        <div class="glass-strong p-8 rounded-3xl lift">
+          <div class="text-4xl mb-4">🧠</div>
+          <h3 class="text-2xl font-bold mb-4">AI Trend Detection</h3>
+          <p class="text-gray-400 leading-relaxed">
+            Powered by LLM, automatically detects anomalies and trends across 3-day windows. 
+            Get insights like "Error rate increased 300% compared to last week."
+          </p>
+        </div>
+
+        <!-- Feature 3 -->
+        <div class="glass-strong p-8 rounded-3xl lift">
+          <div class="text-4xl mb-4">📱</div>
+          <h3 class="text-2xl font-bold mb-4">Instant Telegram Alerts</h3>
+          <p class="text-gray-400 leading-relaxed">
+            Receive critical errors directly in Telegram with rich context: error breakdown, 
+            top hosts, affected apps. Stay informed without checking dashboards.
+          </p>
+        </div>
+
+        <!-- Feature 4 -->
+        <div class="glass-strong p-8 rounded-3xl lift">
+          <div class="text-4xl mb-4">⚡</div>
+          <h3 class="text-2xl font-bold mb-4">Lightning Fast Search</h3>
+          <p class="text-gray-400 leading-relaxed">
+            Search terabytes of logs in milliseconds. Filter by severity, host, app, or any field. 
+            Optimized NDJSON storage for blazing performance.
+          </p>
+        </div>
+
+        <!-- Feature 5 -->
+        <div class="glass-strong p-8 rounded-3xl lift">
+          <div class="text-4xl mb-4">📊</div>
+          <h3 class="text-2xl font-bold mb-4">Beautiful Dashboard</h3>
+          <p class="text-gray-400 leading-relaxed">
+            Modern, responsive UI with hourly summaries, error insights, and visual trends. 
+            Glassmorphism design that works beautifully on any device.
+          </p>
+        </div>
+
+        <!-- Feature 6 -->
+        <div class="glass-strong p-8 rounded-3xl lift">
+          <div class="text-4xl mb-4">🔒</div>
+          <h3 class="text-2xl font-bold mb-4">Multi-Tenant Security</h3>
+          <p class="text-gray-400 leading-relaxed">
+            Complete project isolation with session-based authentication. Each customer gets 
+            their own secure namespace with quota enforcement.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Pricing Section -->
+  <section id="pricing" class="py-32 px-6 bg-gradient-to-b from-black to-gray-900">
+    <div class="max-w-7xl mx-auto">
+      <div class="text-center mb-20">
+        <h2 class="text-5xl font-bold mb-6">Simple, Transparent Pricing</h2>
+        <p class="text-xl text-gray-400 max-w-2xl mx-auto">
+          Pay only for what you use. No hidden fees. Cancel anytime.
+        </p>
+      </div>
+
+      <div class="grid md:grid-cols-4 gap-6">
+        <!-- Starter Plan -->
+        <div class="glass-strong p-8 rounded-3xl lift">
+          <div class="text-sm text-blue-400 font-semibold mb-2">STARTER</div>
+          <div class="text-5xl font-bold mb-6">
+            $29<span class="text-2xl text-gray-400">/mo</span>
+          </div>
+          <ul class="space-y-4 mb-8 text-gray-300">
+            <li>✓ 50,000 events/day</li>
+            <li>✓ 7 days retention</li>
+            <li>✓ 1 Telegram channel</li>
+            <li>✓ Live tail</li>
+            <li>✓ Basic trends</li>
+            <li>✓ Email support</li>
+          </ul>
+          <a href="mailto:sales@xcr9.site?subject=MithrilLog Starter Plan" 
+             class="block w-full text-center glass px-6 py-3 rounded-full hover:bg-blue-500 transition">
+            Get Started
+          </a>
+        </div>
+
+        <!-- Professional Plan -->
+        <div class="glass-strong p-8 rounded-3xl lift border-2 border-blue-500 relative">
+          <div class="absolute -top-4 left-1/2 transform -translate-x-1/2 bg-blue-500 px-4 py-1 rounded-full text-sm font-semibold">
+            POPULAR
+          </div>
+          <div class="text-sm text-blue-400 font-semibold mb-2">PROFESSIONAL</div>
+          <div class="text-5xl font-bold mb-6">
+            $99<span class="text-2xl text-gray-400">/mo</span>
+          </div>
+          <ul class="space-y-4 mb-8 text-gray-300">
+            <li>✓ 500,000 events/day</li>
+            <li>✓ 30 days retention</li>
+            <li>✓ 3 Telegram channels</li>
+            <li>✓ Advanced trends</li>
+            <li>✓ Custom alerts</li>
+            <li>✓ Priority support</li>
+          </ul>
+          <a href="mailto:sales@xcr9.site?subject=MithrilLog Professional Plan" 
+             class="block w-full text-center gradient-blue px-6 py-3 rounded-full hover:opacity-90 transition">
+            Get Started
+          </a>
+        </div>
+
+        <!-- Business Plan -->
+        <div class="glass-strong p-8 rounded-3xl lift">
+          <div class="text-sm text-blue-400 font-semibold mb-2">BUSINESS</div>
+          <div class="text-5xl font-bold mb-6">
+            $299<span class="text-2xl text-gray-400">/mo</span>
+          </div>
+          <ul class="space-y-4 mb-8 text-gray-300">
+            <li>✓ 5M events/day</li>
+            <li>✓ 90 days retention</li>
+            <li>✓ Unlimited channels</li>
+            <li>✓ Custom integrations</li>
+            <li>✓ 24/7 support</li>
+            <li>✓ 99.9% SLA</li>
+          </ul>
+          <a href="mailto:sales@xcr9.site?subject=MithrilLog Business Plan" 
+             class="block w-full text-center glass px-6 py-3 rounded-full hover:bg-blue-500 transition">
+            Get Started
+          </a>
+        </div>
+
+        <!-- Enterprise Plan -->
+        <div class="glass-strong p-8 rounded-3xl lift">
+          <div class="text-sm text-blue-400 font-semibold mb-2">ENTERPRISE</div>
+          <div class="text-5xl font-bold mb-6">
+            Custom
+          </div>
+          <ul class="space-y-4 mb-8 text-gray-300">
+            <li>✓ Unlimited events</li>
+            <li>✓ Custom retention</li>
+            <li>✓ White-label</li>
+            <li>✓ Dedicated instance</li>
+            <li>✓ Custom development</li>
+            <li>✓ Dedicated support</li>
+          </ul>
+          <a href="mailto:sales@xcr9.site?subject=MithrilLog Enterprise Plan" 
+             class="block w-full text-center glass px-6 py-3 rounded-full hover:bg-blue-500 transition">
+            Contact Sales
+          </a>
+        </div>
+      </div>
+
+      <!-- Comparison -->
+      <div class="mt-20 text-center">
+        <h3 class="text-3xl font-bold mb-12">How We Compare</h3>
+        <div class="glass-strong p-8 rounded-3xl max-w-4xl mx-auto">
+          <div class="grid grid-cols-4 gap-4 text-left">
+            <div class="font-semibold">Feature</div>
+            <div class="text-center">MithrilLog</div>
+            <div class="text-center text-gray-500">Datadog</div>
+            <div class="text-center text-gray-500">Splunk</div>
+            
+            <div class="text-gray-400">Price (500K/day)</div>
+            <div class="text-green-400 text-center">$99/mo</div>
+            <div class="text-center text-gray-500">~$1,000/mo</div>
+            <div class="text-center text-gray-500">~$2,000/mo</div>
+            
+            <div class="text-gray-400">AI Trend Detection</div>
+            <div class="text-green-400 text-center">✓</div>
+            <div class="text-center text-gray-500">✗</div>
+            <div class="text-center text-gray-500">Add-on</div>
+            
+            <div class="text-gray-400">Telegram Alerts</div>
+            <div class="text-green-400 text-center">✓</div>
+            <div class="text-center text-gray-500">✗</div>
+            <div class="text-center text-gray-500">✗</div>
+            
+            <div class="text-gray-400">Setup Time</div>
+            <div class="text-green-400 text-center">5 min</div>
+            <div class="text-center text-gray-500">Hours</div>
+            <div class="text-center text-gray-500">Days</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Use Cases -->
+  <section class="py-32 px-6">
+    <div class="max-w-7xl mx-auto">
+      <div class="text-center mb-20">
+        <h2 class="text-5xl font-bold mb-6">Built For Modern Teams</h2>
+        <p class="text-xl text-gray-400 max-w-2xl mx-auto">
+          From startups to enterprises, MithrilLog scales with your needs
+        </p>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-12">
+        <div class="glass-strong p-10 rounded-3xl">
+          <div class="text-3xl mb-4">🚀</div>
+          <h3 class="text-2xl font-bold mb-4">SaaS Companies</h3>
+          <p class="text-gray-400 leading-relaxed mb-6">
+            Monitor multi-tenant applications with complete isolation. Track user activity, 
+            API performance, and error rates across all customers in real-time.
+          </p>
+          <div class="text-sm text-blue-400">→ 80% cost reduction vs. Datadog</div>
+        </div>
+
+        <div class="glass-strong p-10 rounded-3xl">
+          <div class="text-3xl mb-4">🏦</div>
+          <h3 class="text-2xl font-bold mb-4">Fintech & E-commerce</h3>
+          <p class="text-gray-400 leading-relaxed mb-6">
+            Real-time fraud detection and transaction monitoring. Instant alerts for payment failures, 
+            suspicious activity, and system anomalies.
+          </p>
+          <div class="text-sm text-blue-400">→ Sub-second alert delivery</div>
+        </div>
+
+        <div class="glass-strong p-10 rounded-3xl">
+          <div class="text-3xl mb-4">🛠️</div>
+          <h3 class="text-2xl font-bold mb-4">DevOps Teams</h3>
+          <p class="text-gray-400 leading-relaxed mb-6">
+            Centralized logging for Kubernetes clusters, microservices, and serverless functions. 
+            Debug issues faster with intelligent search and context-aware alerts.
+          </p>
+          <div class="text-sm text-blue-400">→ Deploy in 5 minutes</div>
+        </div>
+
+        <div class="glass-strong p-10 rounded-3xl">
+          <div class="text-3xl mb-4">🌍</div>
+          <h3 class="text-2xl font-bold mb-4">Development Agencies</h3>
+          <p class="text-gray-400 leading-relaxed mb-6">
+            Manage logs for multiple clients with complete separation. White-label dashboards 
+            and custom branding available for enterprise plans.
+          </p>
+          <div class="text-sm text-blue-400">→ Multi-tenant by design</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA Section -->
+  <section class="py-32 px-6">
+    <div class="max-w-4xl mx-auto text-center">
+      <div class="gradient-purple p-12 rounded-3xl">
+        <h2 class="text-5xl font-bold mb-6">Ready to Transform Your Logging?</h2>
+        <p class="text-xl mb-10 opacity-90">
+          Start free trial today. No credit card required. Cancel anytime.
+        </p>
+        <div class="flex items-center justify-center space-x-6">
+          <a href="mailto:sales@xcr9.site?subject=MithrilLog Free Trial" 
+             class="bg-white text-black px-10 py-4 rounded-full text-lg font-semibold hover:bg-gray-100 transition">
+            Start Free Trial
+          </a>
+          <a href="mailto:sales@xcr9.site?subject=MithrilLog Demo Request" 
+             class="glass-strong px-10 py-4 rounded-full text-lg font-semibold lift">
+            Schedule Demo
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="border-t border-gray-800 py-16 px-6">
+    <div class="max-w-7xl mx-auto grid md:grid-cols-4 gap-12">
+      <div>
+        <h3 class="text-2xl font-bold gradient-text mb-4">Xcr9</h3>
+        <p class="text-gray-400 text-sm">
+          Next-generation AI solutions for modern infrastructure
+        </p>
+      </div>
+      <div>
+        <h4 class="font-semibold mb-4">Products</h4>
+        <ul class="space-y-2 text-gray-400 text-sm">
+          <li><a href="mithrillog.html" class="hover:text-blue-400">MithrilLog</a></li>
+          <li><a href="services.html" class="hover:text-blue-400">AI Services</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4 class="font-semibold mb-4">Resources</h4>
+        <ul class="space-y-2 text-gray-400 text-sm">
+          <li><a href="#" class="hover:text-blue-400">Documentation</a></li>
+          <li><a href="#" class="hover:text-blue-400">API Reference</a></li>
+          <li><a href="#" class="hover:text-blue-400">Blog</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4 class="font-semibold mb-4">Contact</h4>
+        <ul class="space-y-2 text-gray-400 text-sm">
+          <li><a href="mailto:sales@xcr9.site" class="hover:text-blue-400">sales@xcr9.site</a></li>
+          <li><a href="contact.html" class="hover:text-blue-400">Get in Touch</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="max-w-7xl mx-auto mt-12 pt-8 border-t border-gray-800 text-center text-gray-500 text-sm">
+      © 2024 Xcr9 AI Services. All rights reserved.
+    </div>
+  </footer>
+</body>
+</html>
