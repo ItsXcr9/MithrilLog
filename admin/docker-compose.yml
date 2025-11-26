@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  admin:
+    build: .
+    container_name: mithrillog-admin
+    restart: unless-stopped
+    ports:
+      - "9999:9999"
+    volumes:
+      # Mount database for persistence
+      - ./data:/app/data
+      # Mount config if needed
+      - ../gateway/config.yaml:/app/config.yaml:ro
+      - /home:/host_home:ro
+    environment:
+      - DATABASE_URL=sqlite:////app/data/admin.db
+      - CONFIG_PATH=/app/config.yaml
+    network_mode: host
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9999/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  scheduler:
+    build: .
+    container_name: mithrillog-admin-scheduler
+    restart: unless-stopped
+    volumes:
+      - ./data:/app/data
+      - /home:/host_home:ro
+    environment:
+      - DATABASE_URL=sqlite:////app/data/admin.db
+    command: /bin/bash /app/scripts/run_scheduler.sh
+    network_mode: host
+

@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MithrilLog Admin</title>
+    <link rel="stylesheet" href="/static/css/admin.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        /* Admin-specific overrides */
+        .nav-tabs {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            border-bottom: 1px solid var(--border-subtle);
+            padding-bottom: 1rem;
+        }
+        
+        .nav-tab {
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            padding: 0.5rem 1rem;
+            cursor: pointer;
+            font-size: 0.95rem;
+            border-radius: var(--radius-sm);
+            transition: var(--transition);
+        }
+        
+        .nav-tab:hover {
+            color: var(--text-primary);
+            background: var(--bg-tertiary);
+        }
+        
+        .nav-tab.active {
+            color: var(--accent-primary);
+            background: rgba(59, 130, 246, 0.1);
+            font-weight: 600;
+        }
+
+        .page {
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+        
+        .page.active {
+            display: block;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .admin-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            margin-top: 1rem;
+            background: var(--bg-secondary);
+            border-radius: var(--radius-md);
+            overflow: hidden;
+            border: 1px solid var(--border-subtle);
+        }
+        
+        .admin-table thead {
+            background: var(--bg-tertiary);
+        }
+        
+        .admin-table th {
+            text-align: left;
+            padding: 1rem 1.25rem;
+            color: var(--text-primary);
+            font-weight: 600;
+            font-size: 0.875rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            border-bottom: 2px solid var(--border-medium);
+            white-space: nowrap;
+        }
+        
+        .admin-table th:first-child {
+            padding-left: 1.5rem;
+        }
+        
+        .admin-table th:last-child {
+            padding-right: 1.5rem;
+        }
+        
+        .admin-table tbody tr {
+            transition: var(--transition);
+            border-bottom: 1px solid var(--border-subtle);
+        }
+        
+        .admin-table tbody tr:last-child {
+            border-bottom: none;
+        }
+        
+        .admin-table tbody tr:hover {
+            background: var(--bg-tertiary);
+            transform: scale(1.01);
+        }
+        
+        .admin-table td {
+            padding: 1.25rem;
+            color: var(--text-primary);
+            font-size: 0.9rem;
+            vertical-align: middle;
+        }
+        
+        .admin-table td:first-child {
+            padding-left: 1.5rem;
+        }
+        
+        .admin-table td:last-child {
+            padding-right: 1.5rem;
+        }
+        
+        .filter-btn {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-subtle);
+            color: var(--text-secondary);
+            padding: 0.5rem 1rem;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: var(--transition);
+        }
+        
+        .filter-btn:hover {
+            background: var(--bg-hover);
+            border-color: var(--border-medium);
+            color: var(--text-primary);
+        }
+        
+        .filter-btn.active {
+            background: var(--accent-primary);
+            border-color: var(--accent-primary);
+            color: white;
+        }
+        
+        .project-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-lg);
+            padding: 1.5rem;
+            transition: var(--transition);
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .project-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
+            transform: scaleX(0);
+            transition: transform 0.3s ease;
+        }
+        
+        .project-card:hover {
+            border-color: var(--border-medium);
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-lg);
+        }
+        
+        .project-card:hover::before {
+            transform: scaleX(1);
+        }
+        
+        .project-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        
+        .project-name {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+        
+        .quota-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.35rem 0.75rem;
+            border-radius: var(--radius-sm);
+            font-size: 0.8rem;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+        
+        .quota-badge.green {
+            background: rgba(34, 197, 94, 0.15);
+            color: #86efac;
+            border: 1px solid rgba(34, 197, 94, 0.3);
+        }
+        
+        .quota-badge.yellow {
+            background: rgba(245, 158, 11, 0.15);
+            color: #fbbf24;
+            border: 1px solid rgba(245, 158, 11, 0.3);
+        }
+        
+        .quota-badge.orange {
+            background: rgba(251, 146, 60, 0.15);
+            color: #fdba74;
+            border: 1px solid rgba(251, 146, 60, 0.3);
+        }
+        
+        .quota-badge.red {
+            background: rgba(239, 68, 68, 0.15);
+            color: #fca5a5;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+        
+        .usage-bar {
+            width: 100%;
+            height: 8px;
+            background: var(--bg-tertiary);
+            border-radius: var(--radius-sm);
+            overflow: hidden;
+            margin: 0.75rem 0;
+        }
+        
+        .usage-fill {
+            height: 100%;
+            transition: width 0.3s ease;
+            border-radius: var(--radius-sm);
+        }
+        
+        .usage-fill.green {
+            background: linear-gradient(90deg, #22c55e, #4ade80);
+        }
+        
+        .usage-fill.yellow {
+            background: linear-gradient(90deg, #f59e0b, #fbbf24);
+        }
+        
+        .usage-fill.orange {
+            background: linear-gradient(90deg, #fb923c, #fdba74);
+        }
+        
+        .usage-fill.red {
+            background: linear-gradient(90deg, #ef4444, #f87171);
+        }
+        
+        .plan-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-lg);
+            padding: 2rem;
+            transition: var(--transition);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .plan-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
+            transform: scaleX(0);
+            transition: transform 0.3s ease;
+        }
+        
+        .plan-card:hover {
+            border-color: var(--border-medium);
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-lg);
+        }
+        
+        .plan-card:hover::before {
+            transform: scaleX(1);
+        }
+        
+        .plan-price {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin: 1rem 0;
+        }
+        
+        .plan-select-card {
+            transition: var(--transition);
+        }
+        
+        .plan-select-card:hover {
+            transform: translateX(4px);
+        }
+        
+        .card-grid {
+            gap: 1.5rem;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.7);
+            backdrop-filter: blur(5px);
+        }
+        
+        .modal.active {
+            display: block;
+        }
+
+        .modal-content {
+            background-color: var(--surface);
+            margin: 3% auto;
+            padding: 2.5rem;
+            border: 1px solid var(--border-medium);
+            border-radius: var(--radius-xl);
+            width: 85%;
+            max-width: 900px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: var(--shadow-xl);
+            position: relative;
+        }
+        
+        .modal-content::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        .modal-content::-webkit-scrollbar-track {
+            background: var(--bg-secondary);
+            border-radius: var(--radius-sm);
+        }
+        
+        .modal-content::-webkit-scrollbar-thumb {
+            background: var(--border-medium);
+            border-radius: var(--radius-sm);
+        }
+        
+        .modal-content::-webkit-scrollbar-thumb:hover {
+            background: var(--border-strong);
+        }
+
+        .modal-close {
+            color: var(--text-secondary);
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .modal-close:hover {
+            color: var(--text-primary);
+        }
+    </style>
+</head>
+<body>
+    <!-- Top Bar -->
+    <header class="top-bar glass">
+        <div>
+            <div class="header-left">
+                <p class="eyebrow">ADMINISTRATION</p>
+                <h1>MithrilLog</h1>
+            </div>
+            <div class="header-right">
+                <div class="controls">
+                    <button id="global-refresh" onclick="refreshData()">🔄 Refresh Data</button>
+                    <span class="chip">Admin Mode</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <!-- Navigation Tabs -->
+        <nav class="nav-tabs">
+            <button class="nav-tab active" data-page="dashboard" onclick="switchPage('dashboard')">Dashboard</button>
+            <button class="nav-tab" data-page="projects" onclick="switchPage('projects')">Projects</button>
+            <button class="nav-tab" data-page="analytics" onclick="switchPage('analytics')">Analytics</button>
+            <button class="nav-tab" data-page="billing" onclick="switchPage('billing')">Billing</button>
+            <button class="nav-tab" data-page="settings" onclick="switchPage('settings')">Settings</button>
+        </nav>
+
+        <!-- Dashboard Page -->
+        <div id="dashboard-page" class="page active">
+            <div class="card-grid" style="grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+                <div class="focus-card" style="min-height: auto; padding: 1.75rem;">
+                    <header>
+                        <span class="eyebrow">TOTAL PROJECTS</span>
+                        <h2 id="stat-total-projects" style="font-size: 2.5rem; margin-top: 0.5rem;">-</h2>
+                    </header>
+                </div>
+                <div class="focus-card" style="min-height: auto; padding: 1.75rem;">
+                    <header>
+                        <span class="eyebrow">ACTIVE PROJECTS</span>
+                        <h2 id="stat-active-projects" style="font-size: 2.5rem; margin-top: 0.5rem;">-</h2>
+                    </header>
+                </div>
+                <div class="focus-card" style="min-height: auto; padding: 1.75rem;">
+                    <header>
+                        <span class="eyebrow">EVENTS TODAY</span>
+                        <h2 id="stat-events-today" style="font-size: 2.5rem; margin-top: 0.5rem;">-</h2>
+                    </header>
+                </div>
+                <div class="focus-card" style="min-height: auto; padding: 1.75rem;">
+                    <header>
+                        <span class="eyebrow">MONTHLY REVENUE</span>
+                        <h2 id="stat-mrr" style="font-size: 2.5rem; margin-top: 0.5rem;">-</h2>
+                    </header>
+                </div>
+            </div>
+
+            <section class="glass" style="margin-top: 2rem; padding: 2rem;">
+                <div class="section-header">
+                    <h2>Projects Overview</h2>
+                </div>
+                <div id="projects-table-container">
+                    <!-- Table will be injected here -->
+                </div>
+            </section>
+        </div>
+
+        <!-- Projects Page -->
+        <div id="projects-page" class="page">
+            <section class="glass" style="padding: 2rem;">
+                <div class="section-header">
+                    <h2>All Projects</h2>
+                    <div class="controls" style="display: flex; gap: 0.5rem;">
+                        <button class="filter-btn active" data-status="all" onclick="filterProjects('all')">All</button>
+                        <button class="filter-btn" data-status="active" onclick="filterProjects('active')">Active</button>
+                        <button class="filter-btn" data-status="suspended" onclick="filterProjects('suspended')">Suspended</button>
+                    </div>
+                </div>
+                <div id="projects-list" class="card-grid" style="margin-top: 1.5rem;">
+                    <!-- Project cards injected here -->
+                </div>
+            </section>
+        </div>
+
+        <!-- Analytics Page -->
+        <div id="analytics-page" class="page">
+            <section class="glass" style="padding: 2rem;">
+                <div class="section-header">
+                    <h2>Usage Analytics</h2>
+                </div>
+                <div id="analytics-content" style="margin-top: 1.5rem;">
+                    <div class="empty">
+                        <p>Loading analytics data...</p>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <!-- Billing Page -->
+        <div id="billing-page" class="page">
+            <section class="glass" style="padding: 2rem;">
+                <div class="section-header">
+                    <h2>Subscription Plans</h2>
+                </div>
+                <div id="plans-grid" class="card-grid" style="margin-top: 1.5rem;">
+                    <!-- Plans injected here -->
+                </div>
+            </section>
+        </div>
+
+        <!-- Settings Page -->
+        <div id="settings-page" class="page">
+            <section class="glass" style="padding: 2rem;">
+                <div class="section-header">
+                    <h2>Settings</h2>
+                </div>
+                <div class="empty" style="margin-top: 2rem;">
+                    <p>Settings management coming soon...</p>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- Project Detail Modal -->
+    <div id="project-modal" class="modal">
+        <div class="modal-content glass">
+            <span class="modal-close" onclick="closeModal()">&times;</span>
+            <div id="project-detail"></div>
+        </div>
+    </div>
+
+    <script src="/static/js/admin.js"></script>
+    <script>
+        // Override closeModal to work with class-based modal
+        function closeModal() {
+            const modal = document.getElementById('project-modal');
+            if (modal) {
+                modal.classList.remove('active');
+            }
+        }
+
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('project-modal');
+            if (event.target == modal) {
+                closeModal();
+            }
+            const planModal = document.getElementById('plan-selection-modal');
+            if (event.target == planModal) {
+                closePlanModal();
+            }
+        }
+        
+        // Helper function for filter buttons (called from HTML onclick)
+        function filterProjects(status) {
+            const filterBtns = document.querySelectorAll('.filter-btn');
+            filterBtns.forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.dataset.status === status) {
+                    btn.classList.add('active');
+                }
+            });
+            if (typeof loadProjects === 'function') {
+                // Only pass status if it's not 'all'
+                const filterStatus = (status === 'all' || !status) ? null : status;
+                loadProjects(filterStatus);
+            }
+        }
+    </script>
+</body>
+</html>
