@@ -23,7 +23,10 @@ from sqlalchemy.orm import Session
 # Add admin app to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from app.models import Project, SubscriptionPlan, UsageMetricDaily, UsageMetricHourly, init_db
+from app.models import Project, SubscriptionPlan, UsageMetricDaily, UsageMetricHourly, GlobalSettings, init_db
+
+# YAML handling
+import yaml
 
 # Real usage tracking from database
 from sqlalchemy import func
@@ -46,6 +49,126 @@ def get_real_usage(project_id: str, db):
     current_day = daily.event_count if daily else 0
     
     return {"current_hour": 0, "current_day": current_day}
+
+
+def get_project_storage(project_id: str, db) -> float:
+    """Get storage usage in MB from latest daily metric (updated hourly by scheduler)."""
+    from datetime import date, timedelta
+    
+    # Get most recent metric (within last 2 days to handle timezone issues)
+    recent_date = date.today() - timedelta(days=2)
+    
+    latest = db.query(UsageMetricDaily).filter(
+        UsageMetricDaily.project_id == project_id,
+        UsageMetricDaily.date >= recent_date
+    ).order_by(UsageMetricDaily.date.desc()).first()
+    
+    if latest and hasattr(latest, 'storage_bytes') and latest.storage_bytes:
+        return round(latest.storage_bytes / (1024 * 1024), 2)  # Convert to MB
+    
+    # Fallback: calculate on-demand if not in DB yet
+    project_dir = Path(f"/host_home/MithrilLog-{project_id}")
+    if not project_dir.exists():
+        return 0.0
+    
+    try:
+        total_size = 0
+        for dirpath, dirnames, filenames in os.walk(project_dir):
+            for filename in filenames:
+                filepath = Path(dirpath) / filename
+                try:
+                    total_size += filepath.stat().st_size
+                except (OSError, FileNotFoundError):
+                    continue
+        return round(total_size / (1024 * 1024), 2)
+    except Exception as e:
+        print(f"Error calculating storage for {project_id}: {e}")
+        return 0.0
+
+
+def update_project_config_file(project_id: str, settings: dict):
+    """Update project's default.yaml file with new settings."""
+    config_path = Path(f"/host_home/MithrilLog-{project_id}/configs/default.yaml")
+    
+    if not config_path.exists():
+        print(f"Config file not found: {config_path}")
+        return False
+    
+    try:
+        # Load existing config
+        with open(config_path, 'r') as f:
+            config = yaml.safe_load(f) or {}
+        
+        # Update LLM settings
+        if 'llm' in settings and settings['llm']:
+            if 'llm' not in config:
+                config['llm'] = {}
+            
+            llm = settings['llm']
+            if llm.get('backend'):
+                config['llm']['backend'] = llm['backend']
+            if llm.get('model'):
+                if llm['backend'] == 'gemini':
+                    config['llm']['gemini_model'] = llm['model']
+                elif llm['backend'] == 'openai':
+                    config['llm']['openai_model'] = llm['model']
+            if llm.get('temperature') is not None:
+                config['llm']['temperature'] = llm['temperature']
+            if llm.get('gemini_key'):
+                config['llm']['gemini_api_key'] = llm['gemini_key']
+            if llm.get('openai_key'):
+                config['llm']['openai_api_key'] = llm['openai_key']
+        
+        # Update ingestion settings
+        if 'ingest' in settings and settings['ingest']:
+            if 'ingest' not in config:
+                config['ingest'] = {}
+            if settings['ingest'].get('retention_days'):
+                config['ingest']['retention_days'] = settings['ingest']['retention_days']
+        
+        # Update alert settings
+        if 'alert' in settings and settings['alert']:
+            if 'alert' not in config:
+                config['alert'] = {}
+            if settings['alert'].get('telegram_token'):
+                config['alert']['telegram_bot_token'] = settings['alert']['telegram_token']
+            if settings['alert'].get('telegram_chat'):
+                config['alert']['telegram_chat_id'] = settings['alert']['telegram_chat']
+        
+        # Update summary interval (mapped to summary.hourly_at_minute)
+        if 'summary_interval' in settings and settings['summary_interval']:
+            if 'summary' not in config:
+                config['summary'] = {}
+            # Convert seconds to minutes for hourly summary
+            interval_minutes = settings['summary_interval'] // 60
+            config['summary']['hourly_at_minute'] = interval_minutes % 60
+        
+        # Update web title
+        if 'web_title' in settings and settings['web_title']:
+            if 'web' not in config:
+                config['web'] = {}
+            config['web']['title'] = settings['web_title']
+        
+        # Update cores (add as new field if not exists)
+        if 'cores' in settings and settings['cores']:
+            config['cores'] = settings['cores']
+        
+        # Update log pattern (add to logging.patterns)
+        if 'log_pattern' in settings and settings['log_pattern']:
+            if 'logging' not in config:
+                config['logging'] = {}
+            config['logging']['filter_pattern'] = settings['log_pattern']
+        
+        # Write back to file
+        with open(config_path, 'w') as f:
+            yaml.dump(config, f, default_flow_style=False, sort_keys=False)
+        
+        print(f"Updated config file: {config_path}")
+        return True
+        
+    except Exception as e:
+        print(f"Error updating config file: {e}")
+        return False
 
 # Initialize database
 import os
@@ -100,7 +223,12 @@ class ProjectResponse(BaseModel):
     current_day_events: int
     daily_limit: int
     usage_percent: float
+    daily_limit: int
+    usage_percent: float
+    usage_percent: float
     quota_status: str  # green, yellow, orange, red
+    settings: Optional[dict] = {}
+    storage_mb: Optional[float] = 0.0
 
     class Config:
         from_attributes = True
@@ -238,6 +366,8 @@ async def list_projects(
             daily_limit=daily_limit,
             usage_percent=round(usage_percent, 2),
             quota_status=quota_status,
+            settings=project.settings or {},
+            storage_mb=get_project_storage(project.id, db),
         ))
     
     return result
@@ -287,6 +417,8 @@ async def get_project_detail(
         daily_limit=daily_limit,
         usage_percent=round(usage_percent, 2),
         quota_status=quota_status,
+        settings=project.settings or {},
+        storage_mb=get_project_storage(project_id, db),
     )
 
 
@@ -404,6 +536,129 @@ async def update_project_status(
         "message": "Status updated successfully",
         "old_status": old_status,
         "new_status": request.status,
+    }
+
+
+class UpdateSettingsRequest(BaseModel):
+    settings: dict
+
+
+@app.put("/api/admin/projects/{project_id}/settings")
+async def update_project_settings(
+    project_id: str,
+    request: UpdateSettingsRequest,
+    db: Session = Depends(get_db),
+):
+    """Update settings for a project."""
+    
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    # Update settings
+    project.settings = request.settings
+    db.commit()
+    
+    # Update project's config file
+    update_project_config_file(project_id, request.settings)
+    
+    return {
+        "message": "Settings updated successfully",
+        "settings": project.settings,
+    }
+
+
+# Global Settings Endpoints
+class GlobalSettingsRequest(BaseModel):
+    prompts: Optional[dict] = None
+    default_llm: Optional[dict] = None
+
+
+@app.get("/api/admin/settings")
+async def get_global_settings(db: Session = Depends(get_db)):
+    """Get global settings."""
+    settings = db.query(GlobalSettings).first()
+    
+    # Load prompts from files if they exist
+    prompts_dir = Path("/app/prompts") if Path("/app/prompts").exists() else Path("../prompts")
+    default_prompts = {}
+    
+    if prompts_dir.exists():
+        summary_file = prompts_dir / "daily_summary.txt"
+        trend_file = prompts_dir / "trend_analysis.txt"
+        
+        if summary_file.exists():
+            default_prompts["summary"] = summary_file.read_text()
+        else:
+            default_prompts["summary"] = "Analyze and summarize the following logs. Focus on errors, warnings, and patterns."
+        
+        if trend_file.exists():
+            default_prompts["trend"] = trend_file.read_text()
+        else:
+            default_prompts["trend"] = "Compare these time periods and identify significant trends, anomalies, and changes in error patterns."
+    else:
+        default_prompts = {
+            "summary": "Analyze and summarize the following logs. Focus on errors, warnings, and patterns.",
+            "trend": "Compare these time periods and identify significant trends, anomalies, and changes in error patterns."
+        }
+    
+    if not settings:
+        # Return defaults if not found
+        return {
+            "prompts": default_prompts,
+            "default_llm": {
+                "backend": "gemini",
+                "model": "gemini-2.5-flash-lite",
+                "temperature": 0.2
+            }
+        }
+    
+    # Use saved prompts if available, otherwise use defaults from files
+    return {
+        "prompts": settings.prompts if settings.prompts else default_prompts,
+        "default_llm": settings.default_llm or {}
+    }
+
+
+@app.put("/api/admin/settings")
+async def update_global_settings(
+    request: GlobalSettingsRequest,
+    db: Session = Depends(get_db),
+):
+    """Update global settings."""
+    settings = db.query(GlobalSettings).first()
+    
+    if not settings:
+        # Create new settings
+        settings = GlobalSettings(
+            prompts=request.prompts or {},
+            default_llm=request.default_llm or {}
+        )
+        db.add(settings)
+    else:
+        # Update existing
+        if request.prompts is not None:
+            settings.prompts = request.prompts
+        if request.default_llm is not None:
+            settings.default_llm = request.default_llm
+    
+    db.commit()
+    
+    # Save prompts to files if provided
+    if request.prompts:
+        prompts_dir = Path("/app/prompts") if Path("/app/prompts").exists() else Path("../prompts")
+        if prompts_dir.exists():
+            if "summary" in request.prompts:
+                summary_file = prompts_dir / "daily_summary.txt"
+                summary_file.write_text(request.prompts["summary"])
+            if "trend" in request.prompts:
+                trend_file = prompts_dir / "trend_analysis.txt"
+                trend_file.write_text(request.prompts["trend"])
+    
+    return {
+        "message": "Global settings updated successfully",
+        "prompts": settings.prompts,
+        "default_llm": settings.default_llm
     }
 
 
