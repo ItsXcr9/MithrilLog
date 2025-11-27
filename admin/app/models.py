@@ -79,6 +79,9 @@ class Project(Base):
     custom_quota_events_per_day = Column(Integer, nullable=True)
     custom_quota_events_per_month = Column(Integer, nullable=True)
     
+    # Project-specific settings (LLM, Ingest, Alert)
+    settings = Column(JSON, default=dict)
+    
     # Status
     status = Column(String, nullable=False, default="active")  # active, suspended, cancelled
     
@@ -146,6 +149,7 @@ class UsageMetricDaily(Base):
     error_count = Column(Integer, default=0)
     peak_events_per_hour = Column(Integer, default=0)
     total_data_size_bytes = Column(Integer, default=0)
+    storage_bytes = Column(Integer, default=0)  # Disk usage in bytes
     
     # Metadata
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -226,6 +230,23 @@ class AdminAction(Base):
 
     # Relationships
     admin_user = relationship("AdminUser", back_populates="actions")
+
+
+class GlobalSettings(Base):
+    """Global configuration settings."""
+
+    __tablename__ = "global_settings"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    
+    # System prompts
+    prompts = Column(JSON, default=dict)  # {"summary": "...", "trend": "..."}
+    
+    # Default LLM settings
+    default_llm = Column(JSON, default=dict)  # {"backend": "gemini", "model": "...", ...}
+    
+    # Metadata
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
 # Database initialization helper

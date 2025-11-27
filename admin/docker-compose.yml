@@ -12,6 +12,8 @@ services:
       - ./data:/app/data
       # Mount config if needed
       - ../gateway/config.yaml:/app/config.yaml:ro
+      # Mount prompts folder
+      - ../prompts:/app/prompts
       - /home:/host_home:ro
     environment:
       - DATABASE_URL=sqlite:////app/data/admin.db

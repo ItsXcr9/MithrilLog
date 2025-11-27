@@ -132,6 +132,21 @@ def calculate_usage_by_hour(data_dir):
                     
     return usage_by_hour
 
+def calculate_project_storage(project_path):
+    """Calculate total storage used by a project in bytes."""
+    total_size = 0
+    try:
+        for root, dirs, files in os.walk(project_path):
+            for file in files:
+                file_path = os.path.join(root, file)
+                try:
+                    total_size += os.path.getsize(file_path)
+                except (OSError, FileNotFoundError):
+                    continue
+    except Exception as e:
+        logger.error(f"Error calculating storage for {project_path}: {e}")
+    return total_size
+
 def backfill_usage(session, projects):
     """Update database with calculated usage."""
     
@@ -206,6 +221,21 @@ def backfill_usage(session, projects):
             else:
                 daily_metric.event_count = metrics['events']
                 daily_metric.total_data_size_bytes = metrics['size']
+        
+        # Calculate and store total project storage (most recent day only)
+        if usage_by_date:
+            storage_bytes = calculate_project_storage(proj['path'])
+            logger.info(f"  Total storage: {storage_bytes / 1024 / 1024:.2f} MB")
+            
+            # Update the most recent daily metric with storage
+            latest_date = max(usage_by_date.keys())
+            latest_metric = session.query(UsageMetricDaily).filter(
+                UsageMetricDaily.project_id == proj['id'],
+                func.date(UsageMetricDaily.date) == latest_date
+            ).first()
+            
+            if latest_metric:
+                latest_metric.storage_bytes = storage_bytes
         
         # Update last_event_at if we found data
         if usage_by_hour:

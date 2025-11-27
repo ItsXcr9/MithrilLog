@@ -30,46 +30,52 @@
   <link rel="icon" type="image/svg+xml" href="/xcr9_logo.svg" />
   
   <script src="https://cdn.tailwindcss.com"></script>
-
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
     
     * {
-      font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
+      font-family: 'Inter', sans-serif;
     }
 
     body {
-      overflow-x: hidden;
-      background: #000000;
-      color: #f5f5f7;
+      background-color: #0f172a;
+      background-image: 
+        radial-gradient(at 0% 0%, hsla(253,16%,7%,1) 0, transparent 50%), 
+        radial-gradient(at 50% 0%, hsla(225,39%,30%,1) 0, transparent 50%), 
+        radial-gradient(at 100% 0%, hsla(339,49%,30%,1) 0, transparent 50%);
+      color: #e2e8f0;
+      min-height: 100vh;
     }
 
     .glass {
-      background: rgba(29, 29, 31, 0.72);
-      backdrop-filter: saturate(180%) blur(20px);
-      border: 0.5px solid rgba(255, 255, 255, 0.1);
+      background: rgba(30, 41, 59, 0.7);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
     }
 
-    .glass-strong {
-      background: rgba(29, 29, 31, 0.85);
-      backdrop-filter: saturate(180%) blur(20px);
-      border: 0.5px solid rgba(255, 255, 255, 0.15);
+    .glass-card {
+      background: rgba(30, 41, 59, 0.6);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      transition: all 0.3s ease;
     }
 
-    .lift {
-      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-    }
-
-    .lift:hover {
-      transform: translateY(-4px);
+    .glass-card:hover {
+      transform: translateY(-5px);
+      border-color: rgba(255, 255, 255, 0.2);
       box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
     }
 
+    .glass-strong {
+      background: rgba(30, 41, 59, 0.8);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+    }
+
     .gradient-text {
-      background: linear-gradient(90deg, #f5f5f7 0%, #86868b 100%);
+      background: linear-gradient(to right, #60a5fa, #a78bfa);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
-      background-clip: text;
     }
 
     .gradient-purple {
@@ -77,20 +83,27 @@
     }
 
     .gradient-blue {
-      background: linear-gradient(135deg, #0071e3 0%, #005bb5 100%);
+      background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
     }
 
-    ::-webkit-scrollbar {
-      width: 8px;
+    .lift {
+      transition: all 0.3s ease;
     }
 
-    ::-webkit-scrollbar-track {
-      background: #000000;
+    .lift:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
     }
 
-    ::-webkit-scrollbar-thumb {
-      background: #424245;
-      border-radius: 10px;
+    .hero-glow {
+      position: absolute;
+      width: 600px;
+      height: 600px;
+      background: radial-gradient(circle, rgba(59, 130, 246, 0.15) 0%, transparent 70%);
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
     }
 
     @keyframes fadeIn {
@@ -103,8 +116,8 @@
     }
 
     @keyframes pulse-glow {
-      0%, 100% { box-shadow: 0 0 20px rgba(102, 126, 234, 0.4); }
-      50% { box-shadow: 0 0 40px rgba(102, 126, 234, 0.6); }
+      0%, 100% { box-shadow: 0 0 20px rgba(96, 165, 250, 0.4); }
+      50% { box-shadow: 0 0 40px rgba(96, 165, 250, 0.6); }
     }
 
     .pulse-glow {
@@ -113,56 +126,57 @@
   </style>
 </head>
 
-<body class="bg-black text-white">
+<body class="antialiased">
   <!-- Navigation -->
-  <nav class="glass-strong fixed w-full top-0 z-50">
-    <div class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-      <a href="index.html" class="flex items-center space-x-2">
-        <span class="text-2xl font-bold gradient-text">Xcr9</span>
+  <nav class="fixed w-full z-50 glass border-b border-white/10">
+    <div class="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
+      <a href="index.html" class="text-2xl font-bold tracking-tight">
+        Xcr9<span class="text-blue-400">.</span>
       </a>
-      <div class="flex items-center space-x-8">
-        <a href="services.html" class="hover:text-blue-500 transition">Services</a>
-        <a href="mithrillog.html" class="text-blue-500">MithrilLog</a>
-        <a href="contact.html" class="hover:text-blue-500 transition">Contact</a>
-        <a href="#pricing" class="gradient-blue px-6 py-2 rounded-full hover:opacity-90 transition">Get Started</a>
+      <div class="hidden md:flex items-center space-x-8">
+        <a href="index.html#products" class="text-sm font-medium text-gray-300 hover:text-white transition">Products</a>
+        <a href="services.html" class="text-sm font-medium text-gray-300 hover:text-white transition">Services</a>
+        <a href="mithrillog.html" class="text-sm font-medium text-blue-400 hover:text-blue-300 transition">MithrilLog</a>
+        <a href="mailto:contact@xcr9.site" class="px-5 py-2 rounded-full bg-white/10 hover:bg-white/20 text-sm font-medium transition border border-white/10">Contact</a>
       </div>
     </div>
   </nav>
 
   <!-- Hero Section -->
-  <section class="min-h-screen flex items-center justify-center px-6 pt-20">
-    <div class="max-w-6xl mx-auto text-center fade-in">
-      <div class="inline-block px-4 py-2 glass rounded-full mb-6">
-        <span class="text-blue-400">🛡️ Enterprise-Grade Log Management</span>
+  <section class="relative pt-32 pb-20 px-6 overflow-hidden">
+    <div class="hero-glow"></div>
+    <div class="max-w-7xl mx-auto text-center relative z-10 fade-in">
+      <div class="inline-flex items-center px-3 py-1 rounded-full border border-blue-500/30 bg-blue-500/10 text-blue-400 text-xs font-medium mb-8">
+        🛡️ Enterprise-Grade Log Management
       </div>
-      <h1 class="text-6xl md:text-7xl font-bold mb-6 leading-tight">
-        Real-Time Log Intelligence<br/>
+      <h1 class="text-5xl md:text-7xl font-bold mb-8 tracking-tight leading-tight">
+        Real-Time Log Intelligence<br />
         <span class="gradient-text">10x Cheaper Than Datadog</span>
       </h1>
-      <p class="text-xl text-gray-400 mb-12 max-w-3xl mx-auto leading-relaxed">
+      <p class="text-xl text-gray-400 max-w-2xl mx-auto mb-12 leading-relaxed">
         AI-powered log management with real-time analysis, intelligent trend detection, and instant Telegram alerts. 
         Built for modern teams who need powerful insights without enterprise costs.
       </p>
-      <div class="flex items-center justify-center space-x-6">
-        <a href="#pricing" class="gradient-blue px-8 py-4 rounded-full text-lg font-semibold pulse-glow">
+      <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
+        <a href="#pricing" class="px-8 py-4 rounded-full bg-blue-600 hover:bg-blue-500 text-white font-semibold transition shadow-lg shadow-blue-600/20">
           Start Free Trial
         </a>
-        <a href="#features" class="glass-strong px-8 py-4 rounded-full text-lg font-semibold lift">
+        <a href="#features" class="px-8 py-4 rounded-full glass hover:bg-white/5 text-white font-semibold transition">
           See Features
         </a>
       </div>
       
       <!-- Stats -->
       <div class="grid grid-cols-3 gap-8 mt-20 max-w-3xl mx-auto">
-        <div class="glass p-6 rounded-2xl">
+        <div class="glass-card rounded-2xl p-6">
           <div class="text-4xl font-bold gradient-text">50M+</div>
           <div class="text-gray-400 mt-2">Events/Day</div>
         </div>
-        <div class="glass p-6 rounded-2xl">
+        <div class="glass-card rounded-2xl p-6">
           <div class="text-4xl font-bold gradient-text">~1ms</div>
           <div class="text-gray-400 mt-2">Ingestion</div>
         </div>
-        <div class="glass p-6 rounded-2xl">
+        <div class="glass-card rounded-2xl p-6">
           <div class="text-4xl font-bold gradient-text">90%</div>
           <div class="text-gray-400 mt-2">Cost Savings</div>
         </div>
@@ -182,7 +196,7 @@
 
       <div class="grid md:grid-cols-3 gap-8">
         <!-- Feature 1 -->
-        <div class="glass-strong p-8 rounded-3xl lift">
+        <div class="glass-card p-8 rounded-3xl">
           <div class="text-4xl mb-4">🔥</div>
           <h3 class="text-2xl font-bold mb-4">Live Log Tail</h3>
           <p class="text-gray-400 leading-relaxed">
@@ -192,7 +206,7 @@
         </div>
 
         <!-- Feature 2 -->
-        <div class="glass-strong p-8 rounded-3xl lift">
+        <div class="glass-card p-8 rounded-3xl">
           <div class="text-4xl mb-4">🧠</div>
           <h3 class="text-2xl font-bold mb-4">AI Trend Detection</h3>
           <p class="text-gray-400 leading-relaxed">
@@ -202,7 +216,7 @@
         </div>
 
         <!-- Feature 3 -->
-        <div class="glass-strong p-8 rounded-3xl lift">
+        <div class="glass-card p-8 rounded-3xl">
           <div class="text-4xl mb-4">📱</div>
           <h3 class="text-2xl font-bold mb-4">Instant Telegram Alerts</h3>
           <p class="text-gray-400 leading-relaxed">
@@ -212,7 +226,7 @@
         </div>
 
         <!-- Feature 4 -->
-        <div class="glass-strong p-8 rounded-3xl lift">
+        <div class="glass-card p-8 rounded-3xl">
           <div class="text-4xl mb-4">⚡</div>
           <h3 class="text-2xl font-bold mb-4">Lightning Fast Search</h3>
           <p class="text-gray-400 leading-relaxed">
@@ -222,7 +236,7 @@
         </div>
 
         <!-- Feature 5 -->
-        <div class="glass-strong p-8 rounded-3xl lift">
+        <div class="glass-card p-8 rounded-3xl">
           <div class="text-4xl mb-4">📊</div>
           <h3 class="text-2xl font-bold mb-4">Beautiful Dashboard</h3>
           <p class="text-gray-400 leading-relaxed">
@@ -232,7 +246,7 @@
         </div>
 
         <!-- Feature 6 -->
-        <div class="glass-strong p-8 rounded-3xl lift">
+        <div class="glass-card p-8 rounded-3xl">
           <div class="text-4xl mb-4">🔒</div>
           <h3 class="text-2xl font-bold mb-4">Multi-Tenant Security</h3>
           <p class="text-gray-400 leading-relaxed">
@@ -245,7 +259,7 @@
   </section>
 
   <!-- Pricing Section -->
-  <section id="pricing" class="py-32 px-6 bg-gradient-to-b from-black to-gray-900">
+  <section id="pricing" class="py-24 px-6 relative">
     <div class="max-w-7xl mx-auto">
       <div class="text-center mb-20">
         <h2 class="text-5xl font-bold mb-6">Simple, Transparent Pricing</h2>
@@ -256,7 +270,7 @@
 
       <div class="grid md:grid-cols-4 gap-6">
         <!-- Starter Plan -->
-        <div class="glass-strong p-8 rounded-3xl lift">
+        <div class="glass-card p-8 rounded-3xl">
           <div class="text-sm text-blue-400 font-semibold mb-2">STARTER</div>
           <div class="text-5xl font-bold mb-6">
             $29<span class="text-2xl text-gray-400">/mo</span>
@@ -270,13 +284,13 @@
             <li>✓ Email support</li>
           </ul>
           <a href="mailto:sales@xcr9.site?subject=MithrilLog Starter Plan" 
-             class="block w-full text-center glass px-6 py-3 rounded-full hover:bg-blue-500 transition">
+             class="block w-full text-center px-6 py-3 rounded-full bg-white/10 hover:bg-white/20 transition border border-white/10">
             Get Started
           </a>
         </div>
 
         <!-- Professional Plan -->
-        <div class="glass-strong p-8 rounded-3xl lift border-2 border-blue-500 relative">
+        <div class="glass-card p-8 rounded-3xl border-2 border-blue-500 relative">
           <div class="absolute -top-4 left-1/2 transform -translate-x-1/2 bg-blue-500 px-4 py-1 rounded-full text-sm font-semibold">
             POPULAR
           </div>
@@ -293,13 +307,13 @@
             <li>✓ Priority support</li>
           </ul>
           <a href="mailto:sales@xcr9.site?subject=MithrilLog Professional Plan" 
-             class="block w-full text-center gradient-blue px-6 py-3 rounded-full hover:opacity-90 transition">
+             class="block w-full text-center px-6 py-3 rounded-full bg-blue-600 hover:bg-blue-500 text-white font-semibold transition shadow-lg shadow-blue-600/20">
             Get Started
           </a>
         </div>
 
         <!-- Business Plan -->
-        <div class="glass-strong p-8 rounded-3xl lift">
+        <div class="glass-card p-8 rounded-3xl">
           <div class="text-sm text-blue-400 font-semibold mb-2">BUSINESS</div>
           <div class="text-5xl font-bold mb-6">
             $299<span class="text-2xl text-gray-400">/mo</span>
@@ -313,13 +327,13 @@
             <li>✓ 99.9% SLA</li>
           </ul>
           <a href="mailto:sales@xcr9.site?subject=MithrilLog Business Plan" 
-             class="block w-full text-center glass px-6 py-3 rounded-full hover:bg-blue-500 transition">
+             class="block w-full text-center px-6 py-3 rounded-full bg-white/10 hover:bg-white/20 transition border border-white/10">
             Get Started
           </a>
         </div>
 
         <!-- Enterprise Plan -->
-        <div class="glass-strong p-8 rounded-3xl lift">
+        <div class="glass-card p-8 rounded-3xl">
           <div class="text-sm text-blue-400 font-semibold mb-2">ENTERPRISE</div>
           <div class="text-5xl font-bold mb-6">
             Custom
@@ -333,7 +347,7 @@
             <li>✓ Dedicated support</li>
           </ul>
           <a href="mailto:sales@xcr9.site?subject=MithrilLog Enterprise Plan" 
-             class="block w-full text-center glass px-6 py-3 rounded-full hover:bg-blue-500 transition">
+             class="block w-full text-center px-6 py-3 rounded-full bg-white/10 hover:bg-white/20 transition border border-white/10">
             Contact Sales
           </a>
         </div>
@@ -342,7 +356,7 @@
       <!-- Comparison -->
       <div class="mt-20 text-center">
         <h3 class="text-3xl font-bold mb-12">How We Compare</h3>
-        <div class="glass-strong p-8 rounded-3xl max-w-4xl mx-auto">
+        <div class="glass-card p-8 rounded-3xl max-w-4xl mx-auto">
           <div class="grid grid-cols-4 gap-4 text-left">
             <div class="font-semibold">Feature</div>
             <div class="text-center">MithrilLog</div>
@@ -385,7 +399,7 @@
       </div>
 
       <div class="grid md:grid-cols-2 gap-12">
-        <div class="glass-strong p-10 rounded-3xl">
+        <div class="glass-card p-10 rounded-3xl">
           <div class="text-3xl mb-4">🚀</div>
           <h3 class="text-2xl font-bold mb-4">SaaS Companies</h3>
           <p class="text-gray-400 leading-relaxed mb-6">
@@ -395,7 +409,7 @@
           <div class="text-sm text-blue-400">→ 80% cost reduction vs. Datadog</div>
         </div>
 
-        <div class="glass-strong p-10 rounded-3xl">
+        <div class="glass-card p-10 rounded-3xl">
           <div class="text-3xl mb-4">🏦</div>
           <h3 class="text-2xl font-bold mb-4">Fintech & E-commerce</h3>
           <p class="text-gray-400 leading-relaxed mb-6">
@@ -405,7 +419,7 @@
           <div class="text-sm text-blue-400">→ Sub-second alert delivery</div>
         </div>
 
-        <div class="glass-strong p-10 rounded-3xl">
+        <div class="glass-card p-10 rounded-3xl">
           <div class="text-3xl mb-4">🛠️</div>
           <h3 class="text-2xl font-bold mb-4">DevOps Teams</h3>
           <p class="text-gray-400 leading-relaxed mb-6">
@@ -415,7 +429,7 @@
           <div class="text-sm text-blue-400">→ Deploy in 5 minutes</div>
         </div>
 
-        <div class="glass-strong p-10 rounded-3xl">
+        <div class="glass-card p-10 rounded-3xl">
           <div class="text-3xl mb-4">🌍</div>
           <h3 class="text-2xl font-bold mb-4">Development Agencies</h3>
           <p class="text-gray-400 leading-relaxed mb-6">
@@ -429,61 +443,41 @@
   </section>
 
   <!-- CTA Section -->
-  <section class="py-32 px-6">
+  <section class="py-24 px-6">
     <div class="max-w-4xl mx-auto text-center">
-      <div class="gradient-purple p-12 rounded-3xl">
-        <h2 class="text-5xl font-bold mb-6">Ready to Transform Your Logging?</h2>
-        <p class="text-xl mb-10 opacity-90">
-          Start free trial today. No credit card required. Cancel anytime.
-        </p>
-        <div class="flex items-center justify-center space-x-6">
-          <a href="mailto:sales@xcr9.site?subject=MithrilLog Free Trial" 
-             class="bg-white text-black px-10 py-4 rounded-full text-lg font-semibold hover:bg-gray-100 transition">
-            Start Free Trial
-          </a>
-          <a href="mailto:sales@xcr9.site?subject=MithrilLog Demo Request" 
-             class="glass-strong px-10 py-4 rounded-full text-lg font-semibold lift">
-            Schedule Demo
-          </a>
+      <div class="glass-card p-12 rounded-3xl relative overflow-hidden">
+        <div class="absolute top-0 right-0 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
+        <div class="relative z-10">
+          <h2 class="text-5xl font-bold mb-6">Ready to Transform Your Logging?</h2>
+          <p class="text-xl mb-10 text-gray-400">
+            Start free trial today. No credit card required. Cancel anytime.
+          </p>
+          <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
+            <a href="mailto:sales@xcr9.site?subject=MithrilLog Free Trial" 
+               class="px-10 py-4 rounded-full bg-blue-600 hover:bg-blue-500 text-white font-semibold transition shadow-lg shadow-blue-600/20">
+              Start Free Trial
+            </a>
+            <a href="mailto:sales@xcr9.site?subject=MithrilLog Demo Request" 
+               class="px-10 py-4 rounded-full glass hover:bg-white/5 text-white font-semibold transition">
+              Schedule Demo
+            </a>
+          </div>
         </div>
       </div>
     </div>
   </section>
 
   <!-- Footer -->
-  <footer class="border-t border-gray-800 py-16 px-6">
-    <div class="max-w-7xl mx-auto grid md:grid-cols-4 gap-12">
-      <div>
-        <h3 class="text-2xl font-bold gradient-text mb-4">Xcr9</h3>
-        <p class="text-gray-400 text-sm">
-          Next-generation AI solutions for modern infrastructure
-        </p>
+  <footer class="border-t border-white/10 py-12 px-6 bg-black/20">
+    <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
+      <div class="text-gray-400 text-sm">
+        © 2024 Xcr9. All rights reserved.
       </div>
-      <div>
-        <h4 class="font-semibold mb-4">Products</h4>
-        <ul class="space-y-2 text-gray-400 text-sm">
-          <li><a href="mithrillog.html" class="hover:text-blue-400">MithrilLog</a></li>
-          <li><a href="services.html" class="hover:text-blue-400">AI Services</a></li>
-        </ul>
+      <div class="flex gap-8">
+        <a href="#" class="text-gray-400 hover:text-white text-sm transition">Privacy</a>
+        <a href="#" class="text-gray-400 hover:text-white text-sm transition">Terms</a>
+        <a href="mailto:sales@xcr9.site" class="text-gray-400 hover:text-white text-sm transition">Contact</a>
       </div>
-      <div>
-        <h4 class="font-semibold mb-4">Resources</h4>
-        <ul class="space-y-2 text-gray-400 text-sm">
-          <li><a href="#" class="hover:text-blue-400">Documentation</a></li>
-          <li><a href="#" class="hover:text-blue-400">API Reference</a></li>
-          <li><a href="#" class="hover:text-blue-400">Blog</a></li>
-        </ul>
-      </div>
-      <div>
-        <h4 class="font-semibold mb-4">Contact</h4>
-        <ul class="space-y-2 text-gray-400 text-sm">
-          <li><a href="mailto:sales@xcr9.site" class="hover:text-blue-400">sales@xcr9.site</a></li>
-          <li><a href="contact.html" class="hover:text-blue-400">Get in Touch</a></li>
-        </ul>
-      </div>
-    </div>
-    <div class="max-w-7xl mx-auto mt-12 pt-8 border-t border-gray-800 text-center text-gray-500 text-sm">
-      © 2024 Xcr9 AI Services. All rights reserved.
     </div>
   </footer>
 </body>
