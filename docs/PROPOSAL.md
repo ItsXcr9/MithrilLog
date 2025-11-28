@@ -23,7 +23,23 @@ Based on a deep analysis of the current codebase and architecture, this proposal
     -   **Proposal**: Migrate `admin.db` to **PostgreSQL**.
     -   **Benefit**: Handles concurrent admin actions, complex billing queries, and ensures data integrity for financial records.
 
-## 2. Feature Enhancements (User Value)
+## 2. Future Technology Strategy (Rust vs. Python)
+
+We have successfully migrated the **Ingestion Layer** to Rust. The current architecture is a "Hybrid" model:
+*   **Rust**: High-volume, "dumb" data shoveling (Ingest, Dedupe, Storage).
+*   **Python**: Low-volume, "smart" data analysis (LLM, Orchestration, API).
+
+### What to Keep in Python?
+*   **Orchestrator & LLM**: Python is the native language of AI. The bottleneck here is the LLM API latency, not CPU. Moving this to Rust adds complexity with zero performance gain.
+*   **API (FastAPI)**: Unless you have 10k+ concurrent users viewing the dashboard, FastAPI is sufficient.
+
+### What to Move to Rust Next?
+1.  **Log Query Engine (Search)**:
+    *   **Problem**: As logs grow (GBs/day), searching them via Python (grep/scan) will become slow.
+    *   **Solution**: Implement a small Rust service (or FFI binding) to perform indexed searches or fast scans on the `.ndjson` files.
+    *   **Impact**: Sub-second search results for "Live Tail" and "History" even with millions of logs.
+
+## 3. Feature Enhancements (User Value)
 
 ### Current State
 - **Live Tail**: Uses SSE/Polling (resource heavy on client/server).
