@@ -1,4 +1,4 @@
-FROM rust:1.75-slim-bookworm AS builder
+FROM rust:1.83-slim-bookworm AS builder
 WORKDIR /usr/src/ingester
 COPY src/ingester-rs .
 RUN cargo install --path .
