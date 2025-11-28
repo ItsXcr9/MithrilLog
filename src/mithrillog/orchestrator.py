@@ -35,7 +35,7 @@ class Orchestrator:
                     extra_fields=p.extra_fields,
                 )
             )
-        configure_logging(patterns=patterns)
+        configure_logging(patterns=patterns, remote_config=self.settings.remote_logging)
         
         self.local_tz = get_timezone(self.settings.timezone)
         self.journal = JournalWriter(

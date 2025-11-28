@@ -60,17 +60,31 @@ class TrendSummarizer:
                 logger.warning("Failed to load existing trend report, regenerating.")
 
         # 1. Identify today's patterns from daily report highlights
+        # TREND ANALYSIS: Only process ERROR and CRITICAL levels
+        ERROR_CRITICAL_SEVERITIES = {"err", "error", "crit", "critical", "alert", "emerg", "emergency"}
+        
         today_patterns = set()
         highlights = daily_report.get("highlights", [])
         
+        # Filter to only ERROR/CRITICAL highlights for trend analysis
+        error_critical_highlights = [
+            h for h in highlights 
+            if h.get("severity", "").lower() in ERROR_CRITICAL_SEVERITIES
+        ]
+        
+        logger.info(
+            "Trend analysis processing %d ERROR/CRITICAL highlights out of %d total highlights",
+            len(error_critical_highlights), len(highlights)
+        )
+        
         issues_to_upsert = []
         
-        for item in highlights:
+        for item in error_critical_highlights:
             pattern_id = item.get("pattern_id")
             if not pattern_id:
                 continue
                 
-            today_patterns.add(pattern_id)
+            today_patterns.add(pattern_id)  # pattern_id ensures unique event detection
             severity = item.get("severity", "info")
             message = item.get("message", "")
             

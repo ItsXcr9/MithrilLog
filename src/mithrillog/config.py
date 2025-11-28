@@ -113,6 +113,10 @@ class SummaryConfig(BaseModel):
     daily_at_hour: int = 0
     daily_at_minute: int = 10
     report_dir: Path = Path("data/reports")
+    analysis_levels: list[str] = Field(
+        default=["ERROR", "CRITICAL"],
+        description="Log severity levels to analyze with AI. Supported: DEBUG, INFO, WARNING, ERROR, CRITICAL",
+    )
 
 
 class StorageConfig(BaseModel):
@@ -153,6 +157,13 @@ class LoggingConfig(BaseModel):
     patterns: list[LoggingPatternConfig] = Field(default_factory=list)
 
 
+class RemoteLoggingConfig(BaseModel):
+    enabled: bool = False
+    host: Optional[str] = None
+    port: int = 5514
+    protocol: Literal["udp", "tcp"] = "udp"
+
+
 class Settings(BaseModel):
     environment: Literal["dev", "prod"] = "dev"
     llm: LLMConfig = LLMConfig()
@@ -164,6 +175,7 @@ class Settings(BaseModel):
     alert: AlertConfig = AlertConfig()
     cors: CorsConfig = CorsConfig()
     logging: LoggingConfig = LoggingConfig()
+    remote_logging: RemoteLoggingConfig = RemoteLoggingConfig()
     timezone: str = "UTC"
 
     @classmethod

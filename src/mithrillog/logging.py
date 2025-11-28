@@ -67,7 +67,8 @@ class LogProcessor:
 
 def configure_logging(
     level: str = "INFO", 
-    patterns: Optional[List[LogPattern]] = None
+    patterns: Optional[List[LogPattern]] = None,
+    remote_config: Optional[Any] = None
 ) -> None:
     """Configure structured logging for the application."""
     
@@ -108,6 +109,24 @@ def configure_logging(
     root_logger = logging.getLogger()
     root_logger.addHandler(handler)
     root_logger.setLevel(level.upper())
+    
+    # Send MithrilLog's own application logs to central server for self-monitoring
+    if remote_config and remote_config.enabled and remote_config.host:
+        try:
+            from logging.handlers import SysLogHandler
+            import socket
+            socktype = socket.SOCK_DGRAM if remote_config.protocol == "udp" else socket.SOCK_STREAM
+            syslog_handler = SysLogHandler(
+                address=(remote_config.host, remote_config.port),
+                socktype=socktype
+            )
+            syslog_handler.setFormatter(formatter)
+            root_logger.addHandler(syslog_handler)
+            logging.info(
+                f"MithrilLog app logs forwarding to {remote_config.host}:{remote_config.port} ({remote_config.protocol})"
+            )
+        except Exception as e:
+            logging.warning(f"Failed to setup syslog handler for central logging: {e}")
     
     # Silence noisy libraries
     logging.getLogger("uvicorn.access").handlers = []  # Let uvicorn use root handler
