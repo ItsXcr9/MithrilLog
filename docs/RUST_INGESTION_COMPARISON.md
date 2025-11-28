@@ -59,6 +59,20 @@ graph LR
 ```
 *   **Solution**: The network listener puts raw bytes into a high-performance channel. A separate worker thread processes them. If the worker falls behind, the channel buffers the load. If the buffer fills, we can apply backpressure or drop intelligently, but the network listener stays responsive.
 
+## Functional Benefits: Deduplication & Error Storms
+
+Beyond raw speed, the Rust implementation significantly improves the system's ability to handle **"Log Storms"** (when an application breaks and spams errors).
+
+### 1. Accurate Error Counting
+*   **Scenario**: An app enters a crash loop, sending 50,000 "Connection Refused" errors per second.
+*   **Python**: Might choke on the network socket, dropping packets. You might see "5,000 errors" reported because 45,000 were dropped before processing.
+*   **Rust**: The high-performance ingestion pipeline keeps up with the flood. It successfully identifies all 50,000 events as duplicates, updates the counter to **50,000**, and stores only **one** representative log line.
+*   **Result**: You get the *true* scale of the incident without flooding your disk.
+
+### 2. "Pattern" Detection
+*   **Mechanism**: Both implementations normalize logs (replacing numbers/IPs with placeholders) to find the "Pattern ID".
+*   **Rust Advantage**: This normalization uses Regex. Rust's regex engine is linear-time and does not backtrack, making it immune to "ReDoS" (Regex Denial of Service) attacks or extremely long log lines that would hang the Python parser.
+
 ## Conclusion
 
 Moving to Rust transforms MithrilLog from a "prototype" to a "production-grade" log collector. It allows the system to handle enterprise-scale traffic (tens of thousands of logs per second) on modest hardware, while freeing up the Python Orchestrator to focus on its strength: **Intelligent LLM Summarization**.
