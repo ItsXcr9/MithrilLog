@@ -10,6 +10,19 @@ services:
       - ./configs:/app/configs
       - ./prompts:/app/prompts
       - ./models:/app/models
+    env_file:
+      - .env
+    environment:
+      - PYTHONUNBUFFERED=1
+      - TZ=Asia/Tehran
+    restart: unless-stopped
+
+  ingester:
+    image: mithrillog:latest
+    command: ["ingester-rs", "--host", "0.0.0.0", "--udp-port", "5514", "--tcp-port", "5614", "--bucket-dir", "./data/buckets"]
+    working_dir: /app
+    volumes:
+      - ./data:/app/data
       - /etc/localtime:/etc/localtime:ro
       - /etc/timezone:/etc/timezone:ro
     ports:
@@ -18,7 +31,7 @@ services:
     env_file:
       - .env
     environment:
-      - PYTHONUNBUFFERED=1
+      - RUST_LOG=info
       - TZ=Asia/Tehran
     restart: unless-stopped
 

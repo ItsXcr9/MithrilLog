@@ -99,13 +99,14 @@ class IngestConfig(BaseModel):
     host: str = "0.0.0.0"
     udp_port: int = 5514
     tcp_port: int = 5614
-    bucket_dir: Path = Path("data/buckets")
+    bucket_dir: str = "./data/buckets"
     max_bucket_minutes: int = 1
-    bloom_error_rate: float = 1e-4
+    bloom_error_rate: float = 0.0001
     reservoir_size: int = 200
     retention_days: int = 30
     forward_to_host: Optional[str] = None
     forward_to_port: Optional[int] = None
+    use_python_ingester: bool = True  # Set to False when using Rust ingester
 
 
 class SummaryConfig(BaseModel):

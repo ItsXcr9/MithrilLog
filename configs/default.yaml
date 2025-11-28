@@ -29,6 +29,7 @@ ingest:
   retention_days: 30
   forward_to_host: null
   forward_to_port: null
+  use_python_ingester: false
 summary:
   hourly_at_minute: 9
   daily_at_hour: 0

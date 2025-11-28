@@ -62,7 +62,13 @@ class Orchestrator:
     async def start(self) -> None:
         logger.info("Starting orchestrator")
         self._stopped.clear()
-        await self.ingest_server.start()
+        
+        if self.settings.ingest.use_python_ingester:
+            logger.info("Starting Python IngestServer")
+            await self.ingest_server.start()
+        else:
+            logger.info("Python IngestServer disabled (using external/Rust ingester)")
+            
         # Catch up on missed summaries (run in background, don't block startup)
         self._tasks.append(asyncio.create_task(self._catchup_summaries()))
         self._tasks.append(asyncio.create_task(self._hourly_scheduler()))
@@ -74,7 +80,10 @@ class Orchestrator:
         logger.info("Stopping orchestrator")
         for task in self._tasks:
             task.cancel()
-        await self.ingest_server.stop()
+            
+        if self.settings.ingest.use_python_ingester:
+            await self.ingest_server.stop()
+            
         with contextlib.suppress(asyncio.CancelledError):
             for task in self._tasks:
                 await task
