@@ -1,5 +1,5 @@
 use anyhow::Result;
-use chrono::{DateTime, Datelike, Timelike, Utc};
+use chrono::{DateTime, Datelike, Timelike, Local, TimeZone};
 use serde_json::Value;
 use std::fs::{self, OpenOptions};
 use std::io::Write;
@@ -15,7 +15,7 @@ impl JournalWriter {
         Self { base_dir }
     }
 
-    pub fn bucket_path(&self, time: DateTime<Utc>) -> PathBuf {
+    pub fn bucket_path<T: TimeZone>(&self, time: DateTime<T>) -> PathBuf {
         let year = time.year();
         let month = time.month();
         let day = time.day();
@@ -30,7 +30,7 @@ impl JournalWriter {
             .join(format!("{:02}.ndjson", minute))
     }
 
-    pub fn append(&self, record: &Value, bucket_time: DateTime<Utc>) -> Result<PathBuf> {
+    pub fn append<T: TimeZone>(&self, record: &Value, bucket_time: DateTime<T>) -> Result<PathBuf> {
         let path = self.bucket_path(bucket_time);
         
         if let Some(parent) = path.parent() {

@@ -11,6 +11,22 @@ static HEX_RUN_RE: OnceLock<Regex> = OnceLock::new();
 static QUOTED_STR_RE: OnceLock<Regex> = OnceLock::new();
 static MAC_RE: OnceLock<Regex> = OnceLock::new();
 
+// Normalization regex patterns (cached for performance)
+static RE_NUMS: OnceLock<Regex> = OnceLock::new();
+static RE_TS_TUPLE: OnceLock<Regex> = OnceLock::new();
+static RE_FIELDS: OnceLock<Regex> = OnceLock::new();
+static RE_OLDEST: OnceLock<Regex> = OnceLock::new();
+static RE_META: OnceLock<Regex> = OnceLock::new();
+static RE_HEX: OnceLock<Regex> = OnceLock::new();
+static RE_THREAD: OnceLock<Regex> = OnceLock::new();
+static RE_SESSION: OnceLock<Regex> = OnceLock::new();
+static RE_COMMAS: OnceLock<Regex> = OnceLock::new();
+static RE_SPACES: OnceLock<Regex> = OnceLock::new();
+static RE_DIGITS: OnceLock<Regex> = OnceLock::new();
+static RE_TS1: OnceLock<Regex> = OnceLock::new();
+static RE_TS2: OnceLock<Regex> = OnceLock::new();
+static RE_0X: OnceLock<Regex> = OnceLock::new();
+
 fn get_iso_timestamp_re() -> &'static Regex {
     ISO_TIMESTAMP_RE.get_or_init(|| Regex::new(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})").unwrap())
 }
@@ -33,6 +49,62 @@ fn get_quoted_str_re() -> &'static Regex {
 
 fn get_mac_re() -> &'static Regex {
     MAC_RE.get_or_init(|| Regex::new(r"\b[0-9A-Fa-f]{2}(?::[0-9A-Fa-f]{2}){5}\b").unwrap())
+}
+
+fn get_re_nums() -> &'static Regex {
+    RE_NUMS.get_or_init(|| Regex::new(r"\b\d+\b").unwrap())
+}
+
+fn get_re_ts_tuple() -> &'static Regex {
+    RE_TS_TUPLE.get_or_init(|| Regex::new(r"\(N, N\)").unwrap())
+}
+
+fn get_re_fields() -> &'static Regex {
+    RE_FIELDS.get_or_init(|| Regex::new(r"ts_sec:N|ts_usec:N").unwrap())
+}
+
+fn get_re_oldest() -> &'static Regex {
+    RE_OLDEST.get_or_init(|| Regex::new(r"oldest timestamp:\s*\(N, N\)").unwrap())
+}
+
+fn get_re_meta() -> &'static Regex {
+    RE_META.get_or_init(|| Regex::new(r"meta checkpoint timestamp:\s*\(N, N\)").unwrap())
+}
+
+fn get_re_hex() -> &'static Regex {
+    RE_HEX.get_or_init(|| Regex::new(r"0x[0-9a-fA-F]+").unwrap())
+}
+
+fn get_re_thread() -> &'static Regex {
+    RE_THREAD.get_or_init(|| Regex::new(r#"thread:"[^"]*""#).unwrap())
+}
+
+fn get_re_session() -> &'static Regex {
+    RE_SESSION.get_or_init(|| Regex::new(r#"session_name:"[^"]*""#).unwrap())
+}
+
+fn get_re_commas() -> &'static Regex {
+    RE_COMMAS.get_or_init(|| Regex::new(r",\s*,").unwrap())
+}
+
+fn get_re_spaces() -> &'static Regex {
+    RE_SPACES.get_or_init(|| Regex::new(r"\s+").unwrap())
+}
+
+fn get_re_digits() -> &'static Regex {
+    RE_DIGITS.get_or_init(|| Regex::new(r"\d+").unwrap())
+}
+
+fn get_re_ts1() -> &'static Regex {
+    RE_TS1.get_or_init(|| Regex::new(r"\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}[.\d]*[+-]\d{2}:\d{2}").unwrap())
+}
+
+fn get_re_ts2() -> &'static Regex {
+    RE_TS2.get_or_init(|| Regex::new(r"\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}[.\d]*").unwrap())
+}
+
+fn get_re_0x() -> &'static Regex {
+    RE_0X.get_or_init(|| Regex::new(r"\b0x[0-9a-fA-F]+\b").unwrap())
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -76,38 +148,17 @@ impl LogEvent {
                 }
 
                 if !msg_text.is_empty() || !component.is_empty() {
-                    // Normalize the extracted message
-                    let re_nums = Regex::new(r"\b\d+\b").unwrap();
-                    msg_text = re_nums.replace_all(&msg_text, "N").to_string();
-                    
-                    // Remove timestamp tuples
-                    let re_ts_tuple = Regex::new(r"\(N, N\)").unwrap();
-                    msg_text = re_ts_tuple.replace_all(&msg_text, "").to_string();
-                    
-                    // Remove specific fields
-                    let re_fields = Regex::new(r"ts_sec:N|ts_usec:N").unwrap();
-                    msg_text = re_fields.replace_all(&msg_text, "").to_string();
-                    
-                    let re_oldest = Regex::new(r"oldest timestamp:\s*\(N, N\)").unwrap();
-                    msg_text = re_oldest.replace_all(&msg_text, "oldest timestamp: (N, N)").to_string();
-                    
-                    let re_meta = Regex::new(r"meta checkpoint timestamp:\s*\(N, N\)").unwrap();
-                    msg_text = re_meta.replace_all(&msg_text, "meta checkpoint timestamp: (N, N)").to_string();
-                    
-                    let re_hex = Regex::new(r"0x[0-9a-fA-F]+").unwrap();
-                    msg_text = re_hex.replace_all(&msg_text, "0xHEX").to_string();
-                    
-                    let re_thread = Regex::new(r#"thread:"[^"]*""#).unwrap();
-                    msg_text = re_thread.replace_all(&msg_text, "").to_string();
-                    
-                    let re_session = Regex::new(r#"session_name:"[^"]*""#).unwrap();
-                    msg_text = re_session.replace_all(&msg_text, "").to_string();
-                    
-                    let re_commas = Regex::new(r",\s*,").unwrap();
-                    msg_text = re_commas.replace_all(&msg_text, ",").to_string();
-                    
-                    let re_spaces = Regex::new(r"\s+").unwrap();
-                    msg_text = re_spaces.replace_all(&msg_text, " ").to_string();
+                    // Normalize the extracted message using cached regexes
+                    msg_text = get_re_nums().replace_all(&msg_text, "N").to_string();
+                    msg_text = get_re_ts_tuple().replace_all(&msg_text, "").to_string();
+                    msg_text = get_re_fields().replace_all(&msg_text, "").to_string();
+                    msg_text = get_re_oldest().replace_all(&msg_text, "oldest timestamp: (N, N)").to_string();
+                    msg_text = get_re_meta().replace_all(&msg_text, "meta checkpoint timestamp: (N, N)").to_string();
+                    msg_text = get_re_hex().replace_all(&msg_text, "0xHEX").to_string();
+                    msg_text = get_re_thread().replace_all(&msg_text, "").to_string();
+                    msg_text = get_re_session().replace_all(&msg_text, "").to_string();
+                    msg_text = get_re_commas().replace_all(&msg_text, ",").to_string();
+                    msg_text = get_re_spaces().replace_all(&msg_text, " ").to_string();
                     
                     msg_text = mask_variable_tokens(&msg_text);
 
@@ -122,18 +173,11 @@ impl LogEvent {
             }
         }
 
-        // Non-JSON normalization
-        let re_nums = Regex::new(r"\d+").unwrap();
-        msg = re_nums.replace_all(&msg, "N").to_string();
-        
-        let re_ts1 = Regex::new(r"\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}[.\d]*[+-]\d{2}:\d{2}").unwrap();
-        msg = re_ts1.replace_all(&msg, "TIMESTAMP").to_string();
-        
-        let re_ts2 = Regex::new(r"\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}[.\d]*").unwrap();
-        msg = re_ts2.replace_all(&msg, "TIMESTAMP").to_string();
-        
-        let re_spaces = Regex::new(r"\s+").unwrap();
-        msg = re_spaces.replace_all(&msg, " ").trim().to_string();
+        // Non-JSON normalization using cached regexes
+        msg = get_re_digits().replace_all(&msg, "N").to_string();
+        msg = get_re_ts1().replace_all(&msg, "TIMESTAMP").to_string();
+        msg = get_re_ts2().replace_all(&msg, "TIMESTAMP").to_string();
+        msg = get_re_spaces().replace_all(&msg, " ").trim().to_string();
         
         mask_variable_tokens(&msg)
     }
@@ -187,14 +231,9 @@ fn mask_variable_tokens(text: &str) -> String {
     text = get_hex_run_re().replace_all(&text, "HEX").to_string();
     text = get_quoted_str_re().replace_all(&text, "\"STR\"").to_string();
     
-    let re_0x = Regex::new(r"\b0x[0-9a-fA-F]+\b").unwrap();
-    text = re_0x.replace_all(&text, "0xHEX").to_string();
-    
-    let re_n = Regex::new(r"\b\d+\b").unwrap();
-    text = re_n.replace_all(&text, "N").to_string();
-    
-    let re_spaces = Regex::new(r"\s+").unwrap();
-    text = re_spaces.replace_all(&text, " ").trim().to_string();
+    text = get_re_0x().replace_all(&text, "0xHEX").to_string();
+    text = get_re_nums().replace_all(&text, "N").to_string();
+    text = get_re_spaces().replace_all(&text, " ").trim().to_string();
     
     text
 }
