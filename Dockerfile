@@ -1,3 +1,8 @@
+FROM rust:1.75-slim-bookworm AS builder
+WORKDIR /usr/src/ingester
+COPY src/ingester-rs .
+RUN cargo install --path .
+
 FROM python:3.12-slim AS base
 
 ENV PYTHONUNBUFFERED=1 \
@@ -19,6 +24,9 @@ COPY app ./app
 COPY scripts ./scripts
 COPY configs ./configs
 COPY prompts ./prompts
+
+# Copy Rust binary
+COPY --from=builder /usr/local/cargo/bin/ingester-rs /usr/local/bin/ingester-rs
 
 RUN pip install --upgrade pip && \
     pip install .
