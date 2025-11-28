@@ -26,8 +26,8 @@ Based on a deep analysis of the current codebase and architecture, this proposal
 ## 2. Future Technology Strategy (Rust vs. Python)
 
 We have successfully migrated the **Ingestion Layer** to Rust. The current architecture is a "Hybrid" model:
-*   **Rust**: High-volume, "dumb" data shoveling (Ingest, Dedupe, Storage).
-*   **Python**: Low-volume, "smart" data analysis (LLM, Orchestration, API).
+*   **Rust**: High-volume, **Deterministic** data processing (Ingest, Dedupe, Storage).
+*   **Python**: Low-volume, **Complex** reasoning (LLM, Orchestration, API).
 
 ### What to Keep in Python?
 *   **Orchestrator & LLM**: Python is the "Brain".

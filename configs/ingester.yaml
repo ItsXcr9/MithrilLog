@@ -1,0 +1,24 @@
+# MithrilLog Rust Ingester Configuration
+# This file configures the high-performance Rust ingestion layer
+
+ingester:
+  # Network binding
+  host: "0.0.0.0"
+  udp_port: 5514
+  tcp_port: 5614
+  
+  # Storage
+  bucket_dir: "./data/buckets"
+  max_bucket_minutes: 1  # Rotate buckets every N minutes
+  
+  # Deduplication & Sampling
+  bloom_error_rate: 0.0001  # False positive rate for Bloom filter
+  reservoir_size: 200  # Number of samples to keep per pattern
+  
+  # Optional: Forward logs to another MithrilLog instance
+  # Uncomment to enable log forwarding
+  # forward_to_host: "65.109.200.75"
+  # forward_to_port: 5515
+  
+  # Timezone (should match system TZ env var)
+  timezone: "Asia/Tehran"

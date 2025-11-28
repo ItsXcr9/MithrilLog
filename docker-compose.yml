@@ -19,10 +19,11 @@ services:
 
   ingester:
     image: mithrillog:latest
-    command: ["ingester-rs"]
+    command: ["ingester-rs", "--config", "/app/configs/ingester.yaml"]
     working_dir: /app
     volumes:
       - ./data:/app/data
+      - ./configs:/app/configs
       - /etc/localtime:/etc/localtime:ro
       - /etc/timezone:/etc/timezone:ro
     ports:
@@ -33,16 +34,6 @@ services:
     environment:
       - RUST_LOG=info
       - TZ=Asia/Tehran
-      - INGEST_HOST=0.0.0.0
-      - INGEST_UDP_PORT=5514
-      - INGEST_TCP_PORT=5614
-      - INGEST_BUCKET_DIR=./data/buckets
-      - INGEST_MAX_BUCKET_MINUTES=1
-      - INGEST_BLOOM_ERROR_RATE=0.0001
-      - INGEST_RESERVOIR_SIZE=200
-      # Optional: forward_to_host and forward_to_port
-      # - INGEST_FORWARD_TO_HOST=65.109.200.75
-      # - INGEST_FORWARD_TO_PORT=5515
     restart: unless-stopped
 
   api:
