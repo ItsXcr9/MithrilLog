@@ -14,7 +14,7 @@ use std::net::SocketAddr;
 use tokio::net::{TcpListener, UdpSocket};
 use tokio::sync::mpsc;
 use tokio::io::{AsyncBufReadExt, BufReader};
-use chrono::{DateTime, Timelike, Utc};
+use chrono::{DateTime, Timelike, Local, TimeZone};
 use serde_json::json;
 
 #[derive(Debug)]
@@ -100,7 +100,7 @@ async fn main() -> Result<()> {
     let mut sampler = ReservoirSampler::new(config.reservoir_size);
     
     // Bucket state
-    let mut current_bucket_time = floor_to_minute(Utc::now());
+    let mut current_bucket_time = floor_to_minute(Local::now());
     let mut last_bucket_path: Option<std::path::PathBuf> = None;
     
     // Stats
@@ -121,6 +121,12 @@ async fn main() -> Result<()> {
         None
     };
 
+    // Graceful shutdown handler
+    tokio::spawn(async move {
+        let _ = tokio::signal::ctrl_c().await;
+        eprintln!("Received shutdown signal, flushing...");
+    });
+
     while let Some(msg) = rx.recv().await {
         let (data, addr_str, transport) = match msg {
             IngestMessage::Udp { data, addr } => (data, addr.ip().to_string(), "udp"),
@@ -130,7 +136,7 @@ async fn main() -> Result<()> {
         let event = parse_syslog(&data, &addr_str, transport);
         
         // Bucket rotation check
-        let now = Utc::now();
+        let now = Local::now();
         let bucket_time = floor_to_minute(now);
 
         if bucket_time > current_bucket_time {
@@ -258,6 +264,6 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-fn floor_to_minute(dt: DateTime<Utc>) -> DateTime<Utc> {
+fn floor_to_minute<T: TimeZone>(dt: DateTime<T>) -> DateTime<T> {
     dt.with_second(0).unwrap().with_nanosecond(0).unwrap()
 }
