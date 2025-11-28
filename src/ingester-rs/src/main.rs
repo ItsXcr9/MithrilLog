@@ -4,7 +4,6 @@ mod parser;
 mod storage;
 
 use anyhow::Result;
-use clap::Parser;
 use config::Config;
 use dedupe::{BloomDeduper, ReservoirSampler};
 use parser::parse_syslog;
@@ -26,7 +25,7 @@ enum IngestMessage {
 #[tokio::main]
 async fn main() -> Result<()> {
     tracing_subscriber::fmt::init();
-    let config = Config::parse();
+    let config = Config::load()?;
 
     println!("Starting MithrilLog Ingester (Rust)");
     println!("Config: {:?}", config);

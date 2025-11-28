@@ -104,7 +104,7 @@ class AlertManager:
             # Limit to 150 chars for readability
             if len(anomaly_summary) > 150:
                 anomaly_summary = anomaly_summary[:147] + "..."
-            alert_parts.append(f"🔍 *Anomaly*: {anomaly_summary}")
+            alert_parts.append(f"🔍 *Anomaly*: {self._escape_markdown(anomaly_summary)}")
         
         if not should_alert:
             return
@@ -146,7 +146,7 @@ class AlertManager:
         if by_severity:
             error_severities = {k: v for k, v in by_severity.items() if k in {"emerg", "alert", "crit", "err"}}
             if error_severities:
-                severity_str = ", ".join([f"{sev}: {count}" for sev, count in sorted(error_severities.items())])
+                severity_str = ", ".join([f"{self._escape_markdown(str(sev))}: {count}" for sev, count in sorted(error_severities.items())])
                 stats_lines.append(f"• Errors: {severity_str}")
         
         # Top hosts
@@ -156,23 +156,24 @@ class AlertManager:
             host_strs = []
             for host_app, count in top_hosts:
                 if host_app.endswith("/-"):
-                    host_strs.append(f"{host_app[:-2]} ({count})")
+                    name = host_app[:-2]
                 else:
-                    host_strs.append(f"{host_app} ({count})")
+                    name = host_app
+                host_strs.append(f"{self._escape_markdown(name)} ({count})")
             hosts_str = ", ".join(host_strs)
             stats_lines.append(f"• Top Hosts: {hosts_str}")
         else:
             top_hosts_dict = stats.get("top_hosts", {})
             if top_hosts_dict:
                 top_hosts = sorted(top_hosts_dict.items(), key=lambda x: x[1], reverse=True)[:3]
-                hosts_str = ", ".join([f"{host} ({count})" for host, count in top_hosts])
+                hosts_str = ", ".join([f"{self._escape_markdown(host)} ({count})" for host, count in top_hosts])
                 stats_lines.append(f"• Top Hosts: {hosts_str}")
 
         # Top apps
         top_apps_dict = stats.get("top_apps", {})
         if top_apps_dict:
             top_apps = sorted(top_apps_dict.items(), key=lambda x: x[1], reverse=True)[:3]
-            apps_str = ", ".join([f"{app} ({count})" for app, count in top_apps])
+            apps_str = ", ".join([f"{self._escape_markdown(app)} ({count})" for app, count in top_apps])
             stats_lines.append(f"• Top Apps: {apps_str}")
         
         alert_parts.append("\n".join(stats_lines))
