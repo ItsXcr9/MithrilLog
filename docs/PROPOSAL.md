@@ -30,7 +30,9 @@ We have successfully migrated the **Ingestion Layer** to Rust. The current archi
 *   **Python**: Low-volume, "smart" data analysis (LLM, Orchestration, API).
 
 ### What to Keep in Python?
-*   **Orchestrator & LLM**: Python is the native language of AI. The bottleneck here is the LLM API latency, not CPU. Moving this to Rust adds complexity with zero performance gain.
+*   **Orchestrator & LLM**: Python is the "Brain".
+    *   **Reason**: While Rust is faster at *execution*, Python has the **Ecosystem**. Libraries like `LangChain`, `OpenAI`, `Pandas`, and `PyTorch` are Python-first.
+    *   **Performance**: For AI tasks, the bottleneck is the API call (network latency), not the CPU. Writing this in Rust would be 10x harder for 0% speed gain.
 *   **API (FastAPI)**: Unless you have 10k+ concurrent users viewing the dashboard, FastAPI is sufficient.
 
 ### What to Move to Rust Next?
