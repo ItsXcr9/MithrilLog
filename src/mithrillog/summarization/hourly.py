@@ -167,6 +167,45 @@ class HourlySummarizer:
             "top_host_apps": dict(host_app_counter.most_common(5)),
         }
 
+        # Filter highlights for AI analysis based on configured levels
+        # Normalize severity names for comparison (err->ERROR, crit->CRITICAL, etc.)
+        severity_map = {
+            "debug": "DEBUG", "info": "INFO", "notice": "INFO",
+            "warn": "WARNING", "warning": "WARNING",
+            "err": "ERROR", "error": "ERROR",
+            "crit": "CRITICAL", "critical": "CRITICAL", "alert": "CRITICAL", 
+            "emerg": "CRITICAL", "emergency": "CRITICAL"
+        }
+        analysis_levels_normalized = {lvl.upper() for lvl in self.settings.summary.analysis_levels}
+        
+        def should_analyze(severity: str) -> bool:
+            normalized = severity_map.get(severity.lower(), severity.upper())
+            return normalized in analysis_levels_normalized
+        
+        # Filter highlights for AI analysis
+        highlights_for_analysis = [h for h in highlights_sorted if should_analyze(h.get("severity", "info"))]
+        
+        # Use filtered highlights for AI (top 5 for condensed, top 10 for context)
+        limited_highlights = highlights_for_analysis[:5]
+        condensed_highlights = [
+            {
+                "severity": item.get("severity", "info"),
+                "host": item.get("host", "unknown"),
+                "app": item.get("app", "-"),
+                "occurrences": item.get("occurrences", 1),
+                "message": self._clean_message(item.get("message", ""))[:100],
+                "sources": item.get("source_hosts", {}),
+            }
+            for item in limited_highlights
+        ]
+        # Show top 10 filtered highlights for context
+        highlight_lines = [
+            f"[{item.get('severity', 'info')}] {item.get('host', 'unknown')}/{item.get('app', '-')}"
+            f" ({item.get('occurrences', 1)}x) - {self._clean_message(item.get('message', ''))[:160]}"
+            for item in highlights_for_analysis[:10]
+        ]
+        highlight_context = "\n".join(highlight_lines).strip()
+
         variables = {
             "window_start": start.isoformat(),
             "window_end": end.isoformat(),

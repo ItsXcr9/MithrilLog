@@ -1,6 +1,16 @@
 # MithrilLog
 
-Local-first log deduplication and summarization stack backed by small-footprint LLMs.
+**Multi-tenant, local-first log analysis platform backed by small-footprint LLMs.**
+
+MithrilLog is designed for SaaS deployment with three core components:
+1.  **Core Engine**: High-performance ingestion and LLM summarization (per-tenant).
+2.  **Gateway**: Secure reverse proxy and authentication layer.
+3.  **Admin Panel**: Centralized management for tenants, plans, and billing.
+
+📚 **Documentation**:
+- [Architecture Overview](docs/architecture.md)
+- [Admin Panel Guide](docs/admin_panel.md)
+- [Log Forwarding](docs/LOG_FORWARDING.md)
 
 ## Prerequisites
 
@@ -42,7 +52,8 @@ Ports exposed:
 - Summaries and anomaly notes land in `data/reports/hourly/` and `data/reports/daily/`.
 - FastAPI (`app/main.py`) exposes `/summaries/hourly` and `/summaries/daily`.
 
-See `docs/architecture.md` for the big-picture design.
+See `docs/architecture.md` for the big-picture design.  
+See `docs/LOG_FORWARDING.md` for details on log forwarding mechanisms.
 
 ## Docker Compose
 

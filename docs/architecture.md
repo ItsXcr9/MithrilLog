@@ -1,46 +1,75 @@
 ## Architecture Overview
 
-- **Ingestion**: `log_ingester` service accepts RFC 5424 logs over UDP/TCP (default `:514`) and writes newline-delimited JSON events into the `data/raw/` queue. A small Rust or Go shim can be added later for higher throughput.
-- **Buffering**: `JournalWriter` batches events into minute buckets on disk (`data/buckets/YYYY/MM/DD/HH/mm.ndjson`) while maintaining a dedupe Bloom filter per bucket to drop exact repeats.
-- **Sampling**: For near-duplicate patterns the `PatternSampler` keeps a bounded reservoir (per host, per facility/severity) so recurring errors keep at least one exemplar.
-- **Feature Extraction**: `LogFeaturizer` normalizes messages (host, severity, hashed body, structured kv pairs) and emits embeddings using the local LLM's encoder interface.
-- **Summarization**: `HourlySummarizer` and `DailySummarizer` trigger on schedule, pull the previous window's bucket metadata plus sampled exemplars, and ask the local LLM for:
-  - narrative summary of key events
-  - anomaly report (new patterns, spikes)
-  - action items for SREs (top alerts, failing hosts, remediation hints)
-- **Storage**: Summaries and anomalies stored in `data/reports/{hourly,daily}/` and optionally pushed to SQLite for dashboarding.
-- **Serving**: Minimal FastAPI app (`app/api.py`) exposes REST endpoints for recent summaries and raw exemplars.
-- **Automation**: `orchestrator.py` runs continuous ingestion loop, rotates buckets, schedules hourly/daily jobs, and maintains back-pressure via queue depth metrics.
-- **Observability**: Built-in Prometheus metrics for ingest rate, dedupe ratios, model latency, and queue depth; logs reinjected into the pipeline for self-monitoring.
+MithrilLog is a **multi-tenant, local-first log analysis platform** designed for SaaS deployment. It consists of three main subsystems:
 
-### Local Model Strategy
+1.  **Core MithrilLog**: The log ingestion and summarization engine (one instance per tenant).
+2.  **Gateway**: A reverse proxy and authentication layer that routes traffic to tenant instances.
+3.  **Admin Panel**: A centralized dashboard for managing tenants, plans, and billing.
 
-- Target GGUF models (`LLaMA-3.2-4B-Instruct`, `Qwen2.5-3B-Instruct`) loaded via `llama.cpp` (through `llama-cpp-python` binding). For ARM Macs use Metal acceleration (`LLAMA_METAL=1`).
-- Prompt templates kept under `prompts/` with sections for:
-  - hourly summary
-  - daily summary
-  - anomaly detector
-- Token budgets enforced: summarizer chunk size tuned so hourly windows stay under ~3k tokens; daily aggregator works off pre-summarized hourlies to reduce cost.
-- Fall back to remote provider (OpenAI, etc.) by swapping `LLM_BACKEND` env var.
+---
+
+### 1. Core MithrilLog (Per-Tenant)
+
+Each tenant gets a dedicated MithrilLog instance (containerized) responsible for their data.
+
+-   **Ingestion**: `IngestServer` accepts RFC 5424 logs over UDP/TCP (default `:5514`/`:5614`) and writes newline-delimited JSON events into `data/buckets/`.
+-   **Buffering**: `JournalWriter` batches events into minute buckets (`data/buckets/YYYY/MM/DD/HH/mm.ndjson`).
+-   **Deduplication**: `BloomDeduper` uses a Bloom filter per bucket to drop exact duplicates.
+-   **Sampling**: `ReservoirSampler` keeps representative examples (exemplars) per host/severity/pattern.
+-   **Summarization**:
+    -   **Hourly**: `HourlySummarizer` aggregates minute buckets, extracts stats, and uses the local LLM to generate a narrative summary.
+    -   **Daily**: `DailySummarizer` aggregates hourly reports into a daily overview.
+    -   **Trend**: `TrendSummarizer` compares daily reports to identify long-term patterns and anomalies.
+-   **Storage**: Summaries and anomalies stored in `data/reports/`.
+-   **Serving**: FastAPI app (`app/main.py`) exposes REST endpoints and a web dashboard.
+
+### 2. Gateway System
+
+The Gateway handles routing and authentication for the multi-tenant SaaS architecture.
+
+-   **Reverse Proxy**: Nginx routes traffic based on URL paths (`/p/{project_id}/`).
+-   **Authentication**: FastAPI service (`gateway/app/main.py`) manages sessions via cookies.
+-   **Authorization**: Nginx uses the `auth_request` module to query the Gateway's `/auth` endpoint.
+    -   The Gateway validates the session and checks if the user has access to the requested project.
+    -   It returns the upstream URL (e.g., `http://mithrillog-project1:9000`) in the `X-Target-Upstream` header.
+-   **Isolation**: Strict path checking ensures users cannot access other tenants' instances.
+
+### 3. Admin Panel
+
+Centralized management interface for the SaaS platform.
+
+-   **Backend**: FastAPI (`admin/app/main.py`) with SQLite database (`admin.db`).
+-   **Data Models**:
+    -   **Projects**: Tenants with configuration, upstream URLs, and assigned plans.
+    -   **Plans**: Subscription tiers (Starter, Pro, Business) with resource limits.
+    -   **Usage**: Hourly and daily metrics (event counts, storage) tracked per project.
+    -   **Invoices**: Billing records generated from usage and plan pricing.
+-   **Features**:
+    -   Project provisioning and management.
+    -   Quota enforcement (events/day limits).
+    -   Plan upgrades/downgrades.
+    -   System-wide configuration (default prompts, LLM settings).
+
+---
 
 ### Data Flow
 
-1. Syslog-ng forwards to `udp://<host>:5514`.
-2. `log_ingester.py` parses, enriches, writes to minute bucket and dedupe filters.
-3. `Sampler` stores exemplars per (host, severity, template hash).
-4. Scheduler triggers summarizers at `HH:05` and `00:10`.
-5. Summaries stored and optional alert if anomalies exceed thresholds.
+1.  **Ingestion**: Tenant sends logs to their assigned port (e.g., `5514`).
+2.  **Processing**: Core MithrilLog ingests, dedupes, and stores logs in the tenant's volume.
+3.  **Access**: User logs in via Gateway (`xcr9.site`).
+4.  **Routing**: Gateway authenticates request and routes to the correct tenant container.
+5.  **Management**: Admin manages quotas and plans via Admin Panel (`localhost:9999`).
 
 ### Scalability Notes
 
-- For >50k events/sec switch ingestion to Rust (Tokio) or Go netpoll, but processing & summarization logic remains Python.
-- Bloom filter false positive target ~1e-4 with 1M events/min → ~2 MB filter footprint.
-- Use `rocksdb` or `lmdb` when minute buckets no longer fit in memory for dedupe metadata.
-- Horizontal scale by sharding on hostname or facility; orchestrator coordinates via Redis for distributed locks.
+-   **Per-Tenant Isolation**: Each tenant is a separate container, ensuring data isolation and preventing "noisy neighbor" issues affecting ingestion performance.
+-   **Storage**: Local filesystem (or mounted volumes) used for simplicity and speed. Can be backed by S3/EBS for durability.
+-   **LLM**: Shared or dedicated LLM resources depending on deployment. Currently uses local GGUF models via `llama.cpp`.
 
 ### Security & Compliance
 
-- Logs stored under `data/` with AES-at-rest via `age` or encrypted volume. Metadata (hashes, counts) only for dedupe.
-- Provide audit trail: summarizer prompts/responses persisted, include model hash in headers.
-- Optionally scrub PII using regex rules before persistence.
+-   **Authentication**: Secure cookie-based sessions with strict path scoping.
+-   **Data Residency**: Tenant data stays in their dedicated volume.
+-   **Audit**: Admin actions are logged for compliance.
+
 
