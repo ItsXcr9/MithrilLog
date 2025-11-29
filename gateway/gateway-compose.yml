@@ -9,9 +9,11 @@ services:
     environment:
       - DATABASE_URL=postgresql://user:password@127.0.0.1:5432/gateway_db
       - CONFIG_PATH=/app/config.yaml
+      - ADMIN_DB_PATH=/admin_data/admin.db
     volumes:
       - ./app:/app/app
       - ./config.yaml:/app/config.yaml
+      - /home/MithrilLog-xcr9/admin-go/data:/admin_data:ro
     depends_on:
       - db
 
