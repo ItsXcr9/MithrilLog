@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Service Temporarily Suspended - MithrilLog</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #e0e0e0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 600px;
+            width: 100%;
+            padding: 40px;
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            animation: fadeIn 0.5s ease-in-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .icon {
+            font-size: 64px;
+            text-align: center;
+            margin-bottom: 20px;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                transform: scale(1);
+            }
+            50% {
+                transform: scale(1.1);
+            }
+        }
+
+        h1 {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 16px;
+            color: #ffffff;
+            text-align: center;
+        }
+
+        .subtitle {
+            font-size: 16px;
+            color: #b0b0b0;
+            margin-bottom: 30px;
+            text-align: center;
+            line-height: 1.6;
+        }
+
+        .stats {
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 24px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .stat-row:last-child {
+            border-bottom: none;
+        }
+
+        .stat-label {
+            font-size: 14px;
+            color: #a0a0a0;
+        }
+
+        .stat-value {
+            font-size: 16px;
+            font-weight: 600;
+            color: #ffffff;
+        }
+
+        .usage-section {
+            margin-bottom: 30px;
+        }
+
+        .usage-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .usage-label {
+            font-size: 14px;
+            color: #a0a0a0;
+        }
+
+        .usage-value {
+            font-size: 14px;
+            font-weight: 600;
+            color: #ff6b6b;
+        }
+
+        .usage-bar {
+            width: 100%;
+            height: 30px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .usage-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #ff6b6b, #ee5a6f);
+            transition: width 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            padding-right: 12px;
+            color: white;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .reset-info {
+            background: rgba(52, 152, 219, 0.15);
+            border: 1px solid rgba(52, 152, 219, 0.3);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 24px;
+            text-align: center;
+        }
+
+        .reset-info .time {
+            font-size: 20px;
+            font-weight: 700;
+            color: #3498db;
+            margin-top: 8px;
+        }
+
+        .action-section {
+            background: rgba(255, 193, 7, 0.1);
+            border: 1px solid rgba(255, 193, 7, 0.3);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .action-section p {
+            margin-bottom: 12px;
+            line-height: 1.6;
+        }
+
+        .contact-link {
+            color: #ffc107;
+            text-decoration: none;
+            font-weight: 600;
+            transition: color 0.2s ease;
+        }
+
+        .contact-link:hover {
+            color: #ffdb4d;
+            text-decoration: underline;
+        }
+
+        .footer {
+            margin-top: 30px;
+            text-align: center;
+            font-size: 12px;
+            color: #707070;
+        }
+
+        .logo {
+            text-align: center;
+            margin-bottom: 24px;
+            font-size: 24px;
+            font-weight: 700;
+            color: #ffffff;
+            letter-spacing: 1px;
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                padding: 24px;
+            }
+
+            h1 {
+                font-size: 24px;
+            }
+
+            .icon {
+                font-size: 48px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">MITHRILLOG</div>
+        
+        <div class="icon">⚠️</div>
+        
+        <h1>Daily Limit Reached</h1>
+        <p class="subtitle">
+            Project <strong>{{ .ProjectName }}</strong> has reached its daily event limit and has been temporarily suspended.
+        </p>
+
+        <div class="stats">
+            <div class="stat-row">
+                <span class="stat-label">Subscription Plan</span>
+                <span class="stat-value">{{ .PlanName }}</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">Daily Limit</span>
+                <span class="stat-value">{{ .DailyLimit }} events</span>
+            </div>
+        </div>
+
+        <div class="usage-section">
+            <div class="usage-header">
+                <span class="usage-label">Today's Usage</span>
+                <span class="usage-value">{{ .CurrentUsage }} / {{ .DailyLimit }} events</span>
+            </div>
+            <div class="usage-bar">
+                <div class="usage-fill" style="width: {{ .UsagePercent }}%;">
+                    {{ .UsagePercent }}%
+                </div>
+            </div>
+        </div>
+
+        <div class="reset-info">
+            <div class="usage-label">Service will automatically resume at</div>
+            <div class="time">{{ .ResetTime }}</div>
+        </div>
+
+        <div class="action-section">
+            <p><strong>Need immediate access?</strong></p>
+            <p>
+                Upgrade your plan or contact us at 
+                <a href="mailto:{{ .SupportEmail }}" class="contact-link">{{ .SupportEmail }}</a>
+            </p>
+        </div>
+
+        <div class="footer">
+            MithrilLog - Advanced Log Analytics Platform
+        </div>
+    </div>
+</body>
+</html>

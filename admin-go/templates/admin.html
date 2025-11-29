@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MithrilLog Admin</title>
+    <link rel="stylesheet" href="/static/css/admin.css?v=2">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        /* Additional inline overrides if strictly necessary, otherwise use admin.css */
+    </style>
+</head>
+<body>
+    <!-- Top Bar -->
+    <header class="top-bar glass">
+        <div>
+            <div class="header-left">
+                <p class="eyebrow">ADMINISTRATION</p>
+                <h1>MithrilLog</h1>
+            </div>
+            <div class="header-right">
+                <div class="controls">
+                    <button id="global-refresh" onclick="refreshData()">🔄 Refresh Data</button>
+                    <span class="chip">Admin Mode</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <!-- Navigation Tabs -->
+        <nav class="nav-tabs">
+            <button class="nav-tab active" data-page="dashboard" onclick="switchPage('dashboard')">Dashboard</button>
+            <button class="nav-tab" data-page="projects" onclick="switchPage('projects')">Projects</button>
+            <button class="nav-tab" data-page="analytics" onclick="switchPage('analytics')">Analytics</button>
+            <button class="nav-tab" data-page="billing" onclick="switchPage('billing')">Billing</button>
+            <button class="nav-tab" data-page="settings" onclick="switchPage('settings')">Settings</button>
+        </nav>
+
+        <!-- Dashboard Page -->
+        <div id="dashboard-page" class="page active">
+            <div class="card-grid" style="margin-bottom: 2rem;">
+                <div class="focus-card">
+                    <header>
+                        <span class="eyebrow">TOTAL PROJECTS</span>
+                        <h2 id="stat-total-projects" style="font-size: 2.5rem; margin-top: 0.5rem;">-</h2>
+                    </header>
+                </div>
+                <div class="focus-card">
+                    <header>
+                        <span class="eyebrow">ACTIVE PROJECTS</span>
+                        <h2 id="stat-active-projects" style="font-size: 2.5rem; margin-top: 0.5rem;">-</h2>
+                    </header>
+                </div>
+                <div class="focus-card">
+                    <header>
+                        <span class="eyebrow">EVENTS TODAY</span>
+                        <h2 id="stat-events-today" style="font-size: 2.5rem; margin-top: 0.5rem;">-</h2>
+                    </header>
+                </div>
+                <div class="focus-card">
+                    <header>
+                        <span class="eyebrow">TOTAL STORAGE</span>
+                        <h2 id="stat-total-storage" style="font-size: 2.5rem; margin-top: 0.5rem;">-</h2>
+                        <p style="font-size: 0.875rem; color: var(--text-secondary); margin-top: 0.5rem;">Across all projects</p>
+                    </header>
+                </div>
+            </div>
+
+            <section class="glass" style="padding: 2rem;">
+                <div class="section-header">
+                    <h2>Projects Overview</h2>
+                </div>
+                <div id="projects-table-container">
+                    <!-- Table will be injected here -->
+                </div>
+            </section>
+        </div>
+
+        <!-- Projects Page -->
+        <div id="projects-page" class="page">
+            <section class="glass" style="padding: 2rem;">
+                <div class="section-header">
+                    <h2>All Projects</h2>
+                    <div class="controls" style="display: flex; gap: 0.5rem;">
+                        <button class="filter-btn active" data-status="all" onclick="filterProjects('all')">All</button>
+                        <button class="filter-btn" data-status="active" onclick="filterProjects('active')">Active</button>
+                        <button class="filter-btn" data-status="suspended" onclick="filterProjects('suspended')">Suspended</button>
+                    </div>
+                </div>
+                <div id="projects-list" class="card-grid" style="margin-top: 1.5rem;">
+                    <!-- Project cards injected here -->
+                </div>
+            </section>
+        </div>
+
+        <!-- Analytics Page -->
+        <div id="analytics-page" class="page">
+            <section class="glass" style="padding: 2rem;">
+                <div class="section-header">
+                    <h2>Usage Analytics</h2>
+                </div>
+                <div id="analytics-content" style="margin-top: 1.5rem;">
+                    <div class="empty">
+                        <p>Loading analytics data...</p>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <!-- Billing Page -->
+        <div id="billing-page" class="page">
+            <section class="glass" style="padding: 2rem;">
+                <div class="section-header">
+                    <h2>Subscription Plans</h2>
+                </div>
+                <div id="plans-grid" class="card-grid" style="margin-top: 1.5rem;">
+                    <!-- Plans injected here -->
+                </div>
+            </section>
+        </div>
+
+        <!-- Settings Page (Global Defaults) -->
+        <div id="settings-page" class="page">
+            <section class="glass" style="padding: 2rem;">
+                <div class="section-header">
+                    <h2>Global Settings</h2>
+                    <button class="primary-btn" onclick="saveGlobalSettings()">Save Changes</button>
+                </div>
+                
+                <form id="global-settings-form">
+                    <!-- System Prompts -->
+                    <div class="settings-section glass-panel" style="padding: 1.5rem; margin-bottom: 1.5rem;">
+                        <div class="settings-header">
+                            <h3>System Prompts</h3>
+                            <p>Default prompts used by LLM for log analysis</p>
+                        </div>
+                        <div class="form-group">
+                            <label>Summary Prompt</label>
+                            <textarea id="summary-prompt" rows="4" placeholder="Analyze and summarize the following logs...">Analyze and summarize the following logs. Focus on errors, warnings, and patterns.</textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>Trend Analysis Prompt</label>
+                            <textarea id="trend-prompt" rows="4" placeholder="Compare and analyze trends...">Compare these time periods and identify significant trends, anomalies, and changes in error patterns.</textarea>
+                        </div>
+                    </div>
+
+                    <!-- Default LLM Settings -->
+                    <div class="settings-section glass-panel" style="padding: 1.5rem; margin-bottom: 1.5rem;">
+                        <div class="settings-header">
+                            <h3>Default LLM Configuration</h3>
+                            <p>Default settings applied to new projects</p>
+                        </div>
+                        <div class="form-group">
+                            <label>Backend Provider</label>
+                            <select id="global-llm-backend" onchange="toggleGlobalLLMFields()">
+                                <option value="gemini" selected>Google Gemini</option>
+                                <option value="openai">OpenAI GPT</option>
+                                <option value="local">Local (Llama.cpp)</option>
+                            </select>
+                        </div>
+                        <div class="form-group" id="global-gemini-group">
+                            <label>Gemini API Key</label>
+                            <input type="password" id="global-gemini-key" placeholder="AIza...">
+                        </div>
+                        <div class="form-group" id="global-openai-group" style="display:none;">
+                            <label>OpenAI API Key</label>
+                            <input type="password" id="global-openai-key" placeholder="sk-...">
+                        </div>
+                        <div class="form-group">
+                            <label>Model Name</label>
+                            <input type="text" id="global-llm-model" value="gemini-2.5-flash-lite">
+                        </div>
+                        <div class="form-group">
+                            <label>Temperature (0.0 - 1.0)</label>
+                            <input type="number" id="global-llm-temp" min="0" max="1" step="0.1" value="0.2">
+                        </div>
+                    </div>
+                </form>
+            </section>
+        </div>
+    </main>
+
+    <!-- Project Detail Modal -->
+    <div id="project-modal" class="modal">
+        <div class="modal-content glass">
+            <span class="modal-close" onclick="closeModal()">&times;</span>
+            <div id="project-detail"></div>
+        </div>
+    </div>
+
+    <!-- Plan Selection Modal -->
+    <div id="plan-selection-modal" class="modal">
+        <div class="modal-content glass" style="max-width: 600px;">
+            <span class="modal-close" onclick="closePlanModal()">&times;</span>
+            <h2 style="margin-bottom: 1.5rem; color: var(--text-primary);">Change Project Plan</h2>
+            <div id="plan-selection-content">
+                <div class="empty">
+                    <p>Loading plans...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/admin.js"></script>
+    <script>
+        // Override closeModal to work with class-based modal
+        function closeModal() {
+            const modal = document.getElementById('project-modal');
+            if (modal) {
+                modal.classList.remove('active');
+            }
+        }
+
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('project-modal');
+            if (event.target == modal) {
+                closeModal();
+            }
+            const planModal = document.getElementById('plan-selection-modal');
+            if (event.target == planModal) {
+                closePlanModal();
+            }
+        }
+        
+        // Helper function for filter buttons (called from HTML onclick)
+        function filterProjects(status) {
+            const filterBtns = document.querySelectorAll('.filter-btn');
+            filterBtns.forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.dataset.status === status) {
+                    btn.classList.add('active');
+                }
+            });
+            if (typeof loadProjects === 'function') {
+                // Only pass status if it's not 'all'
+                const filterStatus = (status === 'all' || !status) ? null : status;
+                loadProjects(filterStatus);
+            }
+        }
+    </script>
+</body>
+</html>
+

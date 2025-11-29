@@ -1,0 +1,54 @@
+services:
+  admin-go:
+    build: .
+    container_name: mithrillog-admin-go
+    restart: unless-stopped
+    ports:
+      - "9999:9999"
+    volumes:
+      # Mount database for persistence
+      - ./data:/app/data
+      # Mount config templates
+      - ../configs:/app/configs:ro
+      # Mount templates and static files
+      - ./templates:/app/templates:ro
+      - ./static:/app/static:ro
+      # Mount /home for accessing project directories
+      - /home:/home
+      # Mount Docker socket for container control
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - DATABASE_URL=sqlite:///app/data/admin.db
+      - PORT=9999
+      - GIN_MODE=release
+    network_mode: host
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost:9999/health",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile.scheduler
+    container_name: mithrillog-admin-scheduler
+    restart: unless-stopped
+    volumes:
+      # Mount database for persistence
+      - ./data:/app/data
+      # Mount /home for accessing project directories
+      - /home:/home:ro
+    environment:
+      - DATABASE_URL=sqlite:///app/data/admin.db
+      - BASE_DIR=/home
+    network_mode: host
