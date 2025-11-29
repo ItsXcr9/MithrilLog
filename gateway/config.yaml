@@ -1,25 +1,25 @@
 projects:
-  - id: project1
+  - id: tebyan
     name: "Project flowinsight tebyan"
     password: "tebyan"
     upstream_url: "http://127.0.0.1:9000"
   
-  - id: project2
+  - id: ibscloud
     name: "Project ibscloud"
     password: "ibscloud"
     upstream_url: "http://127.0.0.1:9800"
 
-  - id: project3
+  - id: xcr9
     name: "Project xcr9"
     password: "xcr9"
     upstream_url: "http://127.0.0.1:9900"
 
-  - id: project4
+  - id: afranet
     name: "Project flowinsight afranet"
     password: "afranet"
     upstream_url: "http://127.0.0.1:9700"
 
-  - id: project5
+  - id: mj
     name: "Project mj"
     password: "mj"
     upstream_url: "http://127.0.0.1:9600"
