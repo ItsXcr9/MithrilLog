@@ -1,4 +1,2 @@
-scheduler/
-scheduler-cmd/
 Dockerfile.scheduler
 

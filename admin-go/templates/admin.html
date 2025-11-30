@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MithrilLog Admin</title>
-    <link rel="stylesheet" href="/static/css/admin.css?v=2">
+    <link rel="stylesheet" href="/static/css/admin.css?v=5">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <style>
         /* Additional inline overrides if strictly necessary, otherwise use admin.css */
@@ -34,7 +34,9 @@
             <button class="nav-tab" data-page="projects" onclick="switchPage('projects')">Projects</button>
             <button class="nav-tab" data-page="analytics" onclick="switchPage('analytics')">Analytics</button>
             <button class="nav-tab" data-page="billing" onclick="switchPage('billing')">Billing</button>
+            {{ if not .DisableConfigTabs }}
             <button class="nav-tab" data-page="settings" onclick="switchPage('settings')">Settings</button>
+            {{ end }}
         </nav>
 
         <!-- Dashboard Page -->
@@ -202,7 +204,10 @@
         </div>
     </div>
 
-    <script src="/static/js/admin.js"></script>
+    <script>
+        const DISABLE_CONFIG_TABS = {{ .DisableConfigTabs }};
+    </script>
+    <script src="/static/js/admin.js?v=5"></script>
     <script>
         // Override closeModal to work with class-based modal
         function closeModal() {

@@ -17,6 +17,8 @@ services:
       - /home:/home
       # Mount Docker socket for container control
       - /var/run/docker.sock:/var/run/docker.sock
+    env_file:
+      - .env
     environment:
       - DATABASE_URL=sqlite:///app/data/admin.db
       - PORT=9999

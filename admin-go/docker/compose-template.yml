@@ -1,0 +1,57 @@
+services:
+  orchestrator:
+    image: mithrillog:latest
+    command: ["python", "scripts/run_orchestrator.py", "--config", "configs/default.yaml"]
+    working_dir: /app
+    volumes:
+      - ./data:/app/data
+      - ./configs:/app/configs
+      - ./prompts:/app/prompts
+      - ./models:/app/models
+    env_file:
+      - .env
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+
+  ingester:
+    image: mithrillog:latest
+    command: ["ingester-rs", "--config", "/app/configs/ingester.yaml"]
+    working_dir: /app
+    volumes:
+      - ./data:/app/data
+      - ./configs:/app/configs
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+    ports:
+      - "${UDP_PORT}:5514/udp"
+      - "${TCP_PORT}:5614"
+    env_file:
+      - .env
+    environment:
+      - RUST_LOG=info
+    restart: unless-stopped
+
+  api:
+    image: mithrillog:latest
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "9000"]
+    working_dir: /app
+    ports:
+      - "127.0.0.1:${API_PORT}:9000"
+    volumes:
+      - ./data:/app/data
+      - ./configs:/app/configs
+      - ./prompts:/app/prompts
+      - ./models:/app/models
+      - ./app/static:/app/app/static
+      - ./app/templates:/app/app/templates
+      - ./app/main.py:/app/app/main.py
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+    env_file:
+      - .env
+    environment:
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      - orchestrator
+    restart: unless-stopped

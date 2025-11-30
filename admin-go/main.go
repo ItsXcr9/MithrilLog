@@ -34,13 +34,15 @@ func main() {
 	// Try Docker path first, then local dev path
 	configPath := "configs/default.yaml"
 	ingesterPath := "configs/ingester.yaml"
+	promptsPath := "prompts"
 	
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
 		configPath = "../configs/default.yaml"
 		ingesterPath = "../configs/ingester.yaml"
+		promptsPath = "../prompts"
 	}
 	
-	configMgr := config.NewManager(configPath, ingesterPath)
+	configMgr := config.NewManager(configPath, ingesterPath, promptsPath)
 	log.Info("Config manager initialized")
 
 	// Initialize Docker manager
@@ -56,7 +58,8 @@ func main() {
 	router := gin.Default()
 	router.LoadHTMLGlob("templates/*")
 	router.Static("/static", "./static")
-	apiServer := api.NewServer(database, configMgr, dockerMgr, limitEnforcer)
+	disableConfigTabs := getEnv("DISABLE_CONFIG_TABS", "false") == "true"
+	apiServer := api.NewServer(database, configMgr, dockerMgr, limitEnforcer, disableConfigTabs)
 	apiServer.RegisterRoutes(router)
 
 	// Start server

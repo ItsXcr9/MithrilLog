@@ -2,7 +2,10 @@ package docker
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
+	"strings"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -84,7 +87,7 @@ func (m *Manager) GetStatus(projectID string) (string, error) {
 }
 
 // GetLogs gets logs from project containers
-func (m *Manager) GetLogs(projectID string, tail int) (string, error) {
+func (m *Manager) GetLogs(projectID string,  tail int) (string, error) {
 	composePath := fmt.Sprintf("/home/MithrilLog-%s/docker-compose.yml", projectID)
 	
 	cmd := exec.Command("docker", "compose", "-f", composePath, "logs", "--tail", fmt.Sprintf("%d", tail))
@@ -96,3 +99,62 @@ func (m *Manager) GetLogs(projectID string, tail int) (string, error) {
 	
 	return string(output), nil
 }
+
+// GenerateComposeFile creates docker-compose.yml from template
+func (m *Manager) GenerateComposeFile(projectID string) error {
+	templatePath := "./docker/compose-template.yml"
+	
+	template, err := os.ReadFile(templatePath)
+	if err != nil {
+		return fmt.Errorf("failed to read compose template: %w", err)
+	}
+	
+	outputPath := fmt.Sprintf("/home/MithrilLog-%s/docker-compose.yml", projectID)
+	
+	// Write template as-is (environment variables will be substituted by Docker Compose)
+	if err := os.WriteFile(outputPath, template, 0644); err != nil {
+		return fmt.Errorf("failed to write compose file: %w", err)
+	}
+	
+	log.Infof("Generated docker-compose.yml for project %s", projectID)
+	return nil
+}
+
+
+// RestartWithHealthCheck restarts and waits for healthy status
+func (m *Manager) RestartWithHealthCheck(projectID string, timeoutSeconds int) error {
+	if err := m.RestartProject(projectID); err != nil {
+		return err
+	}
+	
+	// Wait for services to be running
+	return m.WaitForHealthy(projectID, timeoutSeconds)
+}
+
+// WaitForHealthy waits for all project containers to be in running state
+func (m *Manager) WaitForHealthy(projectID string, timeoutSeconds int) error {
+	composePath := fmt.Sprintf("/home/MithrilLog-%s/docker-compose.yml", projectID)
+	
+	for i := 0; i < timeoutSeconds; i++ {
+		cmd := exec.Command("docker", "compose", "-f", composePath, "ps", "--format", "json")
+		output, err := cmd.CombinedOutput()
+		
+		if err != nil {
+			log.Warnf("Failed to check container status (attempt %d/%d): %v", i+1, timeoutSeconds, err)
+			time.Sleep(time.Second)
+			continue
+		}
+		
+		// Simple check: if output is not empty and no "exited" status
+		statusStr := string(output)
+		if len(statusStr) > 0 && !strings.Contains(strings.ToLower(statusStr), "exited") {
+			log.Infof("Project %s containers are healthy", projectID)
+			return nil
+		}
+		
+		time.Sleep(time.Second)
+	}
+	
+	return fmt.Errorf("timeout waiting for project %s containers to be healthy", projectID)
+}
+
