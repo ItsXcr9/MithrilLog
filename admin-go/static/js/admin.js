@@ -61,6 +61,83 @@ function initNavigation() {
     }
 }
 
+function switchModalTab(tabName, projectId) {
+    // Hide all tabs
+    document.querySelectorAll('.modal-tab-content').forEach(tab => {
+        tab.style.display = 'none';
+        tab.classList.remove('active');
+    });
+    
+    // Show selected tab
+    const targetTab = document.getElementById(`modal-tab-${tabName}`);
+    if (targetTab) {
+        targetTab.style.display = 'block';
+        targetTab.classList.add('active');
+    }
+    
+    // Update buttons
+    document.querySelectorAll('.modal-content .nav-tab').forEach(btn => {
+        btn.classList.remove('active');
+        if (btn.textContent.toLowerCase() === tabName) {
+            btn.classList.add('active');
+        }
+    });
+    
+    // Load configs if tab selected
+    if (tabName === 'configs' && projectId) {
+        loadProjectConfigs(projectId);
+    }
+}
+
+async function loadProjectConfigs(projectId) {
+    const container = document.getElementById('configs-content');
+    const loading = document.getElementById('configs-loading');
+    
+    if (!container || !loading) {
+        console.error('Configs container or loading element not found.');
+        return;
+    }
+
+    loading.style.display = 'block';
+    container.style.display = 'none';
+    container.innerHTML = ''; // Clear previous content
+
+    try {
+        const response = await fetch(`${API_BASE}/projects/${projectId}/configs`);
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Failed to load configs: ${response.status} - ${errorText}`);
+        }
+        
+        const configs = await response.json();
+        
+        if (Object.keys(configs).length === 0) {
+            container.innerHTML = '<p style="text-align: center; color: var(--text-secondary); padding: 2rem;">No configurations found for this project.</p>';
+        } else {
+            container.innerHTML = Object.entries(configs).map(([filename, content]) => `
+                <div class="settings-section glass-panel" style="margin-bottom: 1.5rem; padding: 0;">
+                    <div class="settings-header" style="padding: 1rem 1.5rem; border-bottom: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center;">
+                        <h3 style="margin: 0; font-family: monospace;">${filename}</h3>
+                        <button onclick="navigator.clipboard.writeText(this.dataset.content).then(() => alert('Copied!'))" data-content="${content.replace(/"/g, '&quot;')}" style="background: transparent; border: 1px solid var(--border-subtle); color: var(--text-secondary); padding: 0.25rem 0.5rem; border-radius: 4px; cursor: pointer; font-size: 0.75rem;">Copy</button>
+                    </div>
+                    <div style="padding: 0; overflow: hidden;">
+                        <pre style="margin: 0; padding: 1.5rem; overflow-x: auto; background: rgba(0,0,0,0.2); color: #e2e8f0; font-family: 'Menlo', 'Monaco', 'Courier New', monospace; font-size: 0.85rem; line-height: 1.5;"><code>${content.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</code></pre>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        loading.style.display = 'none';
+        container.style.display = 'block';
+        
+    } catch (error) {
+        console.error('Error loading configs:', error);
+        loading.innerHTML = `<p style="color: #ef4444; text-align: center; padding: 2rem;">Error loading configurations: ${error.message}</p>`;
+        loading.style.display = 'block'; // Keep error message visible
+        container.style.display = 'none';
+    }
+}
+
 function switchPage(page) {
     // Hide all pages
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
@@ -216,8 +293,11 @@ async function showProjectDetail(projectId) {
         detailContainer.innerHTML = `
             <h2>${project.name}</h2>
             <div class="nav-tabs" style="margin-bottom: 1.5rem; width: 100%;">
-                <button class="nav-tab active" onclick="switchModalTab('overview')">Overview</button>
-                <button class="nav-tab" onclick="switchModalTab('settings')">Settings</button>
+                <button class="nav-tab active" onclick="switchModalTab('overview', '${project.id}')">Overview</button>
+                ${typeof DISABLE_CONFIG_TABS !== 'undefined' && DISABLE_CONFIG_TABS ? '' : `
+                <button class="nav-tab" onclick="switchModalTab('settings', '${project.id}')">Settings</button>
+                <button class="nav-tab" onclick="switchModalTab('configs', '${project.id}')">Configs</button>
+                `}
             </div>
 
             <div id="modal-tab-overview" class="modal-tab-content active">
@@ -354,12 +434,51 @@ async function showProjectDetail(projectId) {
                             <label>Retention (Days)</label>
                             <input type="number" name="retention_days" value="${project.settings?.ingest?.retention_days || 30}">
                         </div>
+                        <div class="form-group">
+                            <label>Reservoir Size</label>
+                            <input type="number" name="reservoir_size" value="${project.settings?.ingest?.reservoir_size || 200}" min="1">
+                            <small style="color: var(--text-tertiary); font-size: 0.85rem; margin-top: 0.25rem; display: block;">Number of log samples to keep in memory for analysis</small>
+                        </div>
+                    </div>
+
+                    <!-- Analysis Settings -->
+                    <div class="settings-section glass-panel" style="padding: 1.5rem; margin-bottom: 1.5rem;">
+                        <div class="settings-header">
+                            <h3>AI Analysis</h3>
+                        </div>
+                        <div class="form-group">
+                            <label>Analysis Levels</label>
+                            <small style="color: var(--text-tertiary); font-size: 0.85rem; margin-bottom: 0.5rem; display: block;">Select which log levels to analyze with AI</small>
+                            <div style="display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 0.5rem;">
+                                ${['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'].map(level => {
+                                    const checked = (project.settings?.summary?.analysis_levels || ['ERROR', 'CRITICAL']).includes(level);
+                                    return `
+                                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; padding: 0.5rem 1rem; background: var(--bg-tertiary); border-radius: var(--radius-sm); border: 1px solid var(--border-subtle);">
+                                            <input type="checkbox" name="analysis_levels" value="${level}" ${checked ? 'checked' : ''} style="cursor: pointer;">
+                                            <span style="font-weight: 500;">${level}</span>
+                                        </label>
+                                    `;
+                                }).join('')}
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Notification Settings -->
                     <div class="settings-section glass-panel" style="padding: 1.5rem; margin-bottom: 1.5rem;">
                         <div class="settings-header">
                             <h3>Notifications</h3>
+                        </div>
+                        <div class="form-group">
+                            <label style="display: flex; align-items: center; justify-content: space-between;">
+                                <span>Enable Alerts</span>
+                                <input type="checkbox" name="alert_enabled" ${project.settings?.alert?.enabled !== false ? 'checked' : ''} style="width: auto; cursor: pointer;">
+                            </label>
+                            <small style="color: var(--text-tertiary); font-size: 0.85rem; margin-top: 0.25rem; display: block;">Enable or disable Telegram notifications for this project</small>
+                        </div>
+                        <div class="form-group">
+                            <label>Error Threshold</label>
+                            <input type="number" name="error_threshold" value="${project.settings?.alert?.error_threshold || 10}" min="1">
+                            <small style="color: var(--text-tertiary); font-size: 0.85rem; margin-top: 0.25rem; display: block;">Number of errors before triggering an alert</small>
                         </div>
                         <div class="form-group">
                             <label>Telegram Bot Token</label>
@@ -371,10 +490,32 @@ async function showProjectDetail(projectId) {
                         </div>
                     </div>
 
+                    <!-- Logging Patterns -->
+                    <div class="settings-section glass-panel" style="padding: 1.5rem; margin-bottom: 1.5rem;">
+                        <div class="settings-header">
+                            <h3>Logging Patterns</h3>
+                        </div>
+                        <div class="form-group">
+                            <label>Pattern Rules (JSON)</label>
+                            <textarea name="logging_patterns" rows="8" style="font-family: monospace; font-size: 0.875rem;" placeholder='[{"pattern": "saeed", "action": "RECLASSIFY", "new_level": "CRITICAL"}]'>${JSON.stringify(project.settings?.logging?.patterns || [], null, 2)}</textarea>
+                            <small style="color: var(--text-tertiary); font-size: 0.85rem; margin-top: 0.25rem; display: block;">Define pattern-based log reclassification rules. Actions: SUPPRESS, ALLOW, RECLASSIFY</small>
+                        </div>
+                    </div>
+
                     <div style="display: flex; justify-content: flex-end; gap: 1rem;">
                         <button type="submit" class="primary-btn">Save Settings</button>
                     </div>
                 </form>
+            </div>
+
+            <div id="modal-tab-configs" class="modal-tab-content" style="display: none;">
+                <div style="margin-bottom: 1rem; color: var(--text-secondary);">
+                    These are the generated configuration files for this project. They are read-only and updated when you save settings.
+                </div>
+                <div id="configs-loading" style="padding: 2rem; text-align: center;">Loading configurations...</div>
+                <div id="configs-content" style="display: none;">
+                    <!-- Injected by loadProjectConfigs -->
+                </div>
             </div>
         `;
         
@@ -991,21 +1132,6 @@ async function loadGlobalSettings() {
     }
 }
 
-function switchModalTab(tabName) {
-    document.querySelectorAll('.modal .nav-tab').forEach(tab => {
-        tab.classList.remove('active');
-    });
-    document.querySelectorAll('.modal-tab-content').forEach(content => {
-        content.style.display = 'none';
-        content.classList.remove('active');
-    });
-    
-    const target = document.getElementById(`modal-tab-${tabName}`);
-    if (target) {
-        target.style.display = 'block';
-        target.classList.add('active');
-    }
-}
 
 function toggleProjectLLMFields(select) {
     const form = select.closest('form');
@@ -1042,11 +1168,28 @@ async function saveProjectSettings(event, projectId) {
             temperature: parseFloat(formData.get('llm_temp'))
         },
         ingest: {
-            retention_days: parseInt(formData.get('retention_days'))
+            retention_days: parseInt(formData.get('retention_days')),
+            reservoir_size: parseInt(formData.get('reservoir_size'))
         },
         alert: {
+            enabled: formData.get('alert_enabled') === 'on',
             telegram_token: formData.get('telegram_token'),
-            telegram_chat: formData.get('telegram_chat')
+            telegram_chat: formData.get('telegram_chat'),
+            error_threshold: parseInt(formData.get('error_threshold'))
+        },
+        summary: {
+            analysis_levels: formData.getAll('analysis_levels')
+        },
+        logging: {
+            patterns: (() => {
+                try {
+                    const patternsText = formData.get('logging_patterns');
+                    return patternsText ? JSON.parse(patternsText) : [];
+                } catch (e) {
+                    console.error('Failed to parse logging patterns:', e);
+                    return [];
+                }
+            })()
         }
     };
     

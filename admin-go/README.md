@@ -72,6 +72,7 @@ docker compose up -d
 DATABASE_URL=sqlite:///app/data/admin.db  # Database path
 PORT=9999                                  # Server port
 GIN_MODE=release                          # Production mode
+DISABLE_CONFIG_TABS=false                 # Set to true to hide Settings and Configs tabs
 ```
 
 ## API Endpoints

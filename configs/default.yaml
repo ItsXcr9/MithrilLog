@@ -38,6 +38,9 @@ summary:
   # Log levels to analyze with AI (Supported: DEBUG, INFO, WARNING, ERROR, CRITICAL)
   # Default focuses on errors only. Set to ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] to analyze all levels
   analysis_levels:
+    - DEBUG
+    - INFO
+    - WARNING
     - ERROR
     - CRITICAL
 storage:
@@ -65,11 +68,11 @@ logging:
     # Example: Suppress noisy health checks
     # - pattern: "GET /health"
     #   action: SUPPRESS
-    
+
     # Example: Allow critical errors even if they match other suppression rules
     # - pattern: "CRITICAL FAILURE"
     #   action: ALLOW
-    
+
     # Example: Reclassify specific errors as warnings
     # - pattern: "connection reset"
     #   action: RECLASSIFY
@@ -87,4 +90,4 @@ remote_logging:
   enabled: true
   host: 65.109.200.75
   port: 5515
-  protocol: udp  # udp or tcp
+  protocol: udp # udp or tcp

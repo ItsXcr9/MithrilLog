@@ -3,6 +3,7 @@ package api
 import (
 	"fmt"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -15,19 +16,21 @@ import (
 
 // Server represents the API server
 type Server struct {
-	db       *db.Database
-	configMgr *config.Manager
-	dockerMgr *docker.Manager
-	enforcer  *enforcer.LimitEnforcer
+	db                *db.Database
+	configMgr         *config.Manager
+	dockerMgr         *docker.Manager
+	enforcer          *enforcer.LimitEnforcer
+	DisableConfigTabs bool
 }
 
 // NewServer creates a new API server
-func NewServer(database *db.Database, configMgr *config.Manager, dockerMgr *docker.Manager, enforcer *enforcer.LimitEnforcer) *Server {
+func NewServer(database *db.Database, configMgr *config.Manager, dockerMgr *docker.Manager, enforcer *enforcer.LimitEnforcer, disableConfigTabs bool) *Server {
 	return &Server{
-		db:        database,
-		configMgr: configMgr,
-		dockerMgr: dockerMgr,
-		enforcer:  enforcer,
+		db:                database,
+		configMgr:         configMgr,
+		dockerMgr:         dockerMgr,
+		enforcer:          enforcer,
+		DisableConfigTabs: disableConfigTabs,
 	}
 }
 
@@ -50,16 +53,17 @@ func (s *Server) RegisterRoutes(router *gin.Engine) {
 	{
 		// Dashboard stats
 		api.GET("/stats/overview", s.getStatsOverview)
-		
+
 		// Projects
 		api.GET("/projects", s.listProjects)
 		api.GET("/projects/:id", s.getProject)
+		api.GET("/projects/:id/configs", s.getProjectConfigs)
 		api.PUT("/projects/:id/settings", s.updateProjectSettings)
 		api.PUT("/projects/:id/status", s.updateProjectStatus)
 		api.PUT("/projects/:id/plan", s.updateProjectPlan)
 		api.PUT("/projects/:id/quota", s.updateProjectQuota)
 		api.GET("/projects/:id/usage/hourly", s.getProjectUsageHourly)
-		
+
 		// Plans
 		api.GET("/plans", s.listPlans)
 		
@@ -268,30 +272,79 @@ func (s *Server) updateProjectSettings(c *gin.Context) {
 		return
 	}
 	
-	// Update settings in database
+	log.Infof("Updating settings for project %s", projectID)
+	
+	// 1. Update settings in database
 	if err := s.db.UpdateProjectSettings(projectID, request.Settings); err != nil {
 		log.Errorf("Failed to update settings for project %s: %v", projectID, err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update settings"})
 		return
 	}
 	
-	// Sync config file
+	// 2. Generate .env file from settings
+	if err := s.configMgr.GenerateProjectEnv(projectID, request.Settings); err != nil {
+		log.Errorf("Failed to generate .env for project %s: %v", projectID, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate environment file"})
+		return
+	}
+	log.Infof("Generated .env file for project %s", projectID)
+	
+	// 3. Sync config files (default.yaml and ingester.yaml)
 	if err := s.configMgr.SyncProjectConfig(projectID, request.Settings); err != nil {
 		log.Errorf("Failed to sync config for project %s: %v", projectID, err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to sync config"})
 		return
 	}
+	log.Infof("Synced config files for project %s", projectID)
 	
-	// Restart project to apply changes
-	if err := s.dockerMgr.RestartProject(projectID); err != nil {
-		log.Warnf("Failed to restart project %s: %v", projectID, err)
-		// Not a fatal error - settings are saved
+	// 4. Restart project with health check (30 second timeout)
+	if err := s.dockerMgr.RestartWithHealthCheck(projectID, 30); err != nil {
+		log.Errorf("Failed to restart project %s: %v", projectID, err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to restart containers",
+			"details": err.Error(),
+		})
+		return
 	}
+	log.Infof("Successfully restarted project %s with health check", projectID)
 	
 	c.JSON(http.StatusOK, gin.H{
-		"message": "Settings updated and config synced",
+		"message": "Settings updated, .env generated, config synced, and services restarted successfully",
 		"settings": request.Settings,
 	})
+}
+
+// getProjectConfigs returns the generated config files for a project
+func (s *Server) getProjectConfigs(c *gin.Context) {
+	projectID := c.Param("id")
+	
+	configs := make(map[string]string)
+	
+	// Read .env
+	envPath := fmt.Sprintf("/home/MithrilLog-%s/.env", projectID)
+	if content, err := os.ReadFile(envPath); err == nil {
+		configs[".env"] = string(content)
+	} else {
+		configs[".env"] = fmt.Sprintf("# Error reading .env: %v", err)
+	}
+	
+	// Read default.yaml
+	defaultPath := fmt.Sprintf("/home/MithrilLog-%s/configs/default.yaml", projectID)
+	if content, err := os.ReadFile(defaultPath); err == nil {
+		configs["default.yaml"] = string(content)
+	} else {
+		configs["default.yaml"] = fmt.Sprintf("# Error reading default.yaml: %v", err)
+	}
+	
+	// Read ingester.yaml
+	ingesterPath := fmt.Sprintf("/home/MithrilLog-%s/configs/ingester.yaml", projectID)
+	if content, err := os.ReadFile(ingesterPath); err == nil {
+		configs["ingester.yaml"] = string(content)
+	} else {
+		configs["ingester.yaml"] = fmt.Sprintf("# Error reading ingester.yaml: %v", err)
+	}
+	
+	c.JSON(http.StatusOK, configs)
 }
 
 // updateProjectStatus updates project status
@@ -495,7 +548,9 @@ func (s *Server) manualResume(c *gin.Context) {
 
 // adminDashboard serves the admin dashboard page
 func (s *Server) adminDashboard(c *gin.Context) {
-	c.HTML(http.StatusOK, "admin.html", nil)
+	c.HTML(http.StatusOK, "admin.html", gin.H{
+		"DisableConfigTabs": s.DisableConfigTabs,
+	})
 }
 
 // getStatsOverview returns dashboard statistics

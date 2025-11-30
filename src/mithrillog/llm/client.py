@@ -249,12 +249,39 @@ class LLMClient:
     def _fallback_summary(variables: Dict[str, Any]) -> str:
         stats = variables.get("stats", {})
         highlights = variables.get("highlights", [])
-        lines = [
-            "Local model unavailable, generated deterministic summary.",
-            f"Total events: {stats.get('total_events', 'n/a')}",
-        ]
-        for severity, count in stats.get("by_severity", {}).items():
-            lines.append(f"{severity}: {count}")
+        highlights_text = variables.get("highlights_text", "")
+        
+        lines = []
+        
+        # Check if this is a highlight_analysis call (has highlights_text but no stats)
+        if highlights_text and not stats:
+            lines.append("Local model unavailable, generated deterministic summary.")
+            if highlights_text.strip():
+                lines.append("\nHighlights found:")
+                # Parse highlights from text if possible
+                highlight_lines = [line.strip() for line in highlights_text.split('\n') if line.strip()][:10]
+                for line in highlight_lines:
+                    lines.append(f"- {line[:200]}")
+            else:
+                lines.append("No notable highlights in this period.")
+            return "\n".join(lines)
+        
+        # Standard summary fallback
+        lines.append("Local model unavailable, generated deterministic summary.")
+        if stats:
+            total_events = stats.get('total_events')
+            if total_events is not None:
+                lines.append(f"Total events: {total_events}")
+            else:
+                lines.append("Total events: n/a")
+            
+            by_severity = stats.get("by_severity", {})
+            if by_severity:
+                for severity, count in by_severity.items():
+                    lines.append(f"{severity}: {count}")
+        else:
+            lines.append("Total events: n/a")
+        
         if highlights:
             lines.append("Key samples:")
             for item in highlights[:5]:
@@ -262,5 +289,6 @@ class LLMClient:
                 app = item.get("app", "-")
                 msg = item.get("message", "")
                 lines.append(f"- {host}/{app}: {msg[:120]}")
+        
         return "\n".join(lines)
 

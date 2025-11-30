@@ -137,27 +137,7 @@ class HourlySummarizer:
             return (priority, -occurrences)
         
         highlights_sorted = sorted(highlights, key=sort_key)
-        # Show top 5 highlights (prioritizing errors/warnings)
-        limited_highlights = highlights_sorted[:5]
-        condensed_highlights = [
-            {
-                "severity": item.get("severity", "info"),
-                "host": item.get("host", "unknown"),
-                "app": item.get("app", "-"),
-                "occurrences": item.get("occurrences", 1),
-                "message": self._clean_message(item.get("message", ""))[:100],
-                "sources": item.get("source_hosts", {}),
-            }
-            for item in limited_highlights
-        ]
-        # Show top 10 highlights for context (prioritizing errors/warnings)
-        highlight_lines = [
-            f"[{item.get('severity', 'info')}] {item.get('host', 'unknown')}/{item.get('app', '-')}"
-            f" ({item.get('occurrences', 1)}x) - {self._clean_message(item.get('message', ''))[:160]}"
-            for item in highlights_sorted[:10]
-        ]
-        highlight_context = "\n".join(highlight_lines).strip()
-
+        
         stats_struct = {
             "total_events": total_events,
             "unique_events": unique_events,
@@ -182,8 +162,15 @@ class HourlySummarizer:
             normalized = severity_map.get(severity.lower(), severity.upper())
             return normalized in analysis_levels_normalized
         
-        # Filter highlights for AI analysis
+        # Filter highlights for AI analysis - only include levels configured in analysis_levels
         highlights_for_analysis = [h for h in highlights_sorted if should_analyze(h.get("severity", "info"))]
+        
+        # Log filtering results for debugging
+        total_highlights = len(highlights_sorted)
+        filtered_count = len(highlights_for_analysis)
+        logger.debug(
+            f"Filtering highlights: {total_highlights} total, {filtered_count} match analysis_levels {self.settings.summary.analysis_levels}"
+        )
         
         # Use filtered highlights for AI (top 5 for condensed, top 10 for context)
         limited_highlights = highlights_for_analysis[:5]
@@ -198,7 +185,7 @@ class HourlySummarizer:
             }
             for item in limited_highlights
         ]
-        # Show top 10 filtered highlights for context
+        # Show top 10 filtered highlights for context (only ERROR and CRITICAL if configured)
         highlight_lines = [
             f"[{item.get('severity', 'info')}] {item.get('host', 'unknown')}/{item.get('app', '-')}"
             f" ({item.get('occurrences', 1)}x) - {self._clean_message(item.get('message', ''))[:160]}"
