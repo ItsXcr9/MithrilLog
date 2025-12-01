@@ -6,10 +6,11 @@ The **MithrilLog Admin Panel** is the centralized management interface for the M
 
 ## Architecture
 
--   **Backend**: FastAPI application (`admin/app/main.py`).
--   **Database**: SQLite (`admin.db`) using SQLAlchemy ORM.
--   **Frontend**: Server-side rendered HTML templates (`admin/app/templates/`) with modern CSS/JS.
+-   **Backend**: Go application using Gin framework (`admin-go/`).
+-   **Database**: SQLite (`admin.db`).
+-   **Frontend**: Server-side rendered HTML templates (`admin-go/templates/`) with modern CSS/JS.
 -   **Port**: Runs on port `9999` by default.
+-   **Deployment**: Docker Compose (`admin-go/docker-compose.yml`).
 
 ## Features
 
@@ -85,21 +86,22 @@ Records billing information.
 
 ## Usage Guide
 
+## Usage Guide
+
 ### Starting the Admin Panel
 ```bash
-cd admin
-python3 app/main.py
+cd admin-go
+go run main.go
+# Or using Docker
+docker compose up -d
 ```
 Access at `http://localhost:9999`.
 
+### Environment Variables
+- `DISABLE_CONFIG_TABS`: Set to `true` to hide Settings and Configs tabs.
+
 ### Creating Plans (Seeding)
-Run the seed script to populate default plans:
-```bash
-python3 scripts/seed_plans.py
-```
+The Go admin panel initializes default plans automatically if the database is empty.
 
 ### Migrating Projects
-To import existing `config.yaml` projects into the database:
-```bash
-python3 scripts/migrate_projects_to_db.py
-```
+Legacy migration scripts are available in the `scripts/` directory if needed.
