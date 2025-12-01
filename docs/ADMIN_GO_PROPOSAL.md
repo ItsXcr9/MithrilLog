@@ -615,7 +615,16 @@ func SyncProjectConfig(projectID string, overrides map[string]interface{}) error
 
 ---
 
-**Document Version**: 1.0  
-**Date**: 2025-11-29  
-**Author**: Antigravity AI  
-**Status**: Proposal - Awaiting Review
+**Document Version**: 1.1
+**Date**: 2025-11-30
+**Author**: Antigravity AI
+**Status**: Implemented ✅
+
+## Implemented Features
+
+### Environment Variables
+- `DISABLE_CONFIG_TABS`: Set to `true` to hide the **Settings** and **Configs** tabs in the UI, leaving only Monitoring, Billing, and Suspension controls. This is useful for restricted admin views.
+
+### Deployment
+The Go admin panel is now the standard implementation, deployed via `admin-go/docker-compose.yml`.
+

@@ -5,7 +5,7 @@
 MithrilLog is designed for SaaS deployment with three core components:
 1.  **Core Engine**: High-performance ingestion and LLM summarization (per-tenant).
 2.  **Gateway**: Secure reverse proxy and authentication layer.
-3.  **Admin Panel**: Centralized management for tenants, plans, and billing.
+3.  **Admin Panel**: Centralized management for tenants, plans, and billing (High-performance Go implementation).
 
 📚 **Documentation**:
 - [Architecture Overview](docs/architecture.md)
@@ -185,6 +185,7 @@ Keep API keys outside of tracked config files by creating a `.env` file in the p
 OPENAI_API_KEY=sk-...
 OPENAI_MODEL=gpt-4o-mini
 GEMINI_API_KEY=...
+DISABLE_CONFIG_TABS=true  # Set to true to hide Settings/Configs tabs in Admin Panel
 ```
 
 Environment values override the matching entries under `llm` in YAML configs, so you can keep the current profile while activating OpenAI just by setting `OPENAI_API_KEY`.

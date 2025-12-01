@@ -38,7 +38,7 @@ The Gateway handles routing and authentication for the multi-tenant SaaS archite
 
 Centralized management interface for the SaaS platform.
 
--   **Backend**: FastAPI (`admin/app/main.py`) with SQLite database (`admin.db`).
+-   **Backend**: Go application using Gin framework (`admin-go/`) with SQLite database (`admin.db`).
 -   **Data Models**:
     -   **Projects**: Tenants with configuration, upstream URLs, and assigned plans.
     -   **Plans**: Subscription tiers (Starter, Pro, Business) with resource limits.
