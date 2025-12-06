@@ -305,6 +305,25 @@ pub fn parse_syslog(payload: &[u8], addr: &str, transport: &str) -> LogEvent {
         }
     }
 
+    // Fallback: Extract severity from Python log format (- LEVEL -)
+    // This handles cases where Python's SysLogHandler sends logs with standard format:
+    // "2025-12-06 10:58:08,051 - logger_name - INFO - message"
+    let python_log_levels = ["DEBUG", "INFO", "WARNING", "WARN", "ERROR", "CRITICAL"];
+    for level in python_log_levels {
+        let pattern = format!(" - {} - ", level);
+        if raw.contains(&pattern) || message.contains(&pattern) {
+            severity = match level {
+                "DEBUG" => "debug".to_string(),
+                "INFO" => "info".to_string(),
+                "WARNING" | "WARN" => "warn".to_string(),
+                "ERROR" => "err".to_string(),
+                "CRITICAL" => "crit".to_string(),
+                _ => severity,
+            };
+            break;
+        }
+    }
+
     LogEvent {
         timestamp,
         host,
