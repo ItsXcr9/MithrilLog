@@ -33,3 +33,5 @@ models/*.bin
 # Logs
 *.log
 
+.DS_Store
+src/mithrillog/.DS_Store
