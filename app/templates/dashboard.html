@@ -6,6 +6,7 @@
     <title>{{ title }}</title>
     <link rel="stylesheet" href="static/styles.css" />
     <link rel="stylesheet" href="static/tail-search.css" />
+    <link rel="stylesheet" href="static/analytics.css" />
     <script src="https://cdn.jsdelivr.net/npm/d3@7.8.5/dist/d3.min.js" onerror="console.error('Failed to load D3 from jsdelivr, trying unpkg...'); this.onerror=null; this.src='https://unpkg.com/d3@7.8.5/dist/d3.min.js';"></script>
   </head>
   <body>
@@ -159,6 +160,75 @@
         <div id="trend-feed"></div>
       </section>
 
+      <!-- Enterprise Analytics Section -->
+      <section class="analytics-panel glass" id="analytics-panel">
+        <div class="section-header">
+          <div>
+            <h2>◈ Enterprise Analytics</h2>
+            <p class="section-desc">Process Intelligence & Advanced Insights</p>
+          </div>
+          <div class="controls">
+            <button id="analytics-refresh">Refresh</button>
+          </div>
+        </div>
+        
+        <div class="analytics-grid">
+          <!-- KPI Cards -->
+          <div class="kpi-row">
+            <div class="kpi-card">
+              <span class="kpi-label">Total Events (24h)</span>
+              <span class="kpi-value" id="kpi-events">--</span>
+              <span class="kpi-trend" id="kpi-events-trend"></span>
+            </div>
+            <div class="kpi-card">
+              <span class="kpi-label">Error Rate</span>
+              <span class="kpi-value" id="kpi-error-rate">--</span>
+              <span class="kpi-trend" id="kpi-error-trend"></span>
+            </div>
+            <div class="kpi-card">
+              <span class="kpi-label">Active Hosts</span>
+              <span class="kpi-value" id="kpi-hosts">--</span>
+            </div>
+            <div class="kpi-card">
+              <span class="kpi-label">Anomalies Detected</span>
+              <span class="kpi-value" id="kpi-anomalies">--</span>
+              <span class="kpi-trend warning" id="kpi-anomaly-trend"></span>
+            </div>
+          </div>
+          
+          <!-- Charts Row -->
+          <div class="charts-row">
+            <div class="chart-card">
+              <h4>Severity Distribution</h4>
+              <div class="chart-wrapper">
+                <canvas id="severity-chart" width="300" height="200"></canvas>
+              </div>
+            </div>
+            <div class="chart-card">
+              <h4>Top Hosts by Activity</h4>
+              <div class="chart-wrapper">
+                <canvas id="hosts-chart" width="300" height="200"></canvas>
+              </div>
+            </div>
+            <div class="chart-card">
+              <h4>Hourly Error Trend</h4>
+              <div class="chart-wrapper">
+                <canvas id="error-trend-chart" width="300" height="200"></canvas>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Process Mining Quick View -->
+          <div class="process-mining-card">
+            <h4>Process Activity Summary</h4>
+            <p class="section-desc">Top activities from process mining analysis</p>
+            <div id="process-activities" class="activity-list">
+              <p class="muted">Connect to ClickHouse for process mining data</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <section class="daily-panel glass">
         <div class="section-header">
           <h2>Daily Summaries</h2>
@@ -242,5 +312,6 @@
     </template>
 
     <script src="static/dashboard.js?v=2" defer></script>
+    <script src="static/analytics.js?v=1" defer></script>
   </body>
 </html>

@@ -38,26 +38,33 @@ services:
 
   api:
     image: mithrillog:latest
-    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "9000"]
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "9000", "--reload"]
     working_dir: /app
     ports:
-      - "127.0.0.1:9900:9000"
+      - "0.0.0.0:9900:9000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - ./data:/app/data
       - ./configs:/app/configs
       - ./prompts:/app/prompts
       - ./models:/app/models
-      - ./app/static:/app/app/static
-      - ./app/templates:/app/app/templates
-      - ./app/main.py:/app/app/main.py
+      - ./app:/app/app
+      - ./src:/app/src
       - /etc/localtime:/etc/localtime:ro
       - /etc/timezone:/etc/timezone:ro
     env_file:
       - .env
     environment:
+      - PYTHONPATH=/app/src
       - PYTHONUNBUFFERED=1
       - TZ=Asia/Tehran
+      # ClickHouse - connects to AncientReport's ClickHouse
+      - CLICKHOUSE_HOST=${CLICKHOUSE_HOST:-65.109.200.75}
+      - CLICKHOUSE_PORT=${CLICKHOUSE_PORT:-6123}
+      - CLICKHOUSE_DB=${CLICKHOUSE_DB:-mithrillog}
+      - CLICKHOUSE_USER=${CLICKHOUSE_USER:-AncientReport}
+      - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD:-AncientReport}
     depends_on:
       - orchestrator
     restart: unless-stopped
-

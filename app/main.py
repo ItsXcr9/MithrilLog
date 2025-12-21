@@ -29,7 +29,36 @@ except ImportError:
 _cache = {}
 _cache_times = {}
 
-app = FastAPI(title="MithrilLog API")
+app = FastAPI(
+    title="MithrilLog API",
+    description="Enterprise Process Intelligence & Analytics Platform",
+    version="2.0.0"
+)
+
+# Register Enterprise API routers
+try:
+    from app.api.analytics import router as analytics_router
+    app.include_router(analytics_router, tags=["Analytics & Process Mining"])
+except ImportError as e:
+    print(f"Warning: Analytics API not loaded: {e}")
+
+try:
+    from app.api.governance import router as governance_router
+    app.include_router(governance_router, tags=["Data Governance"])
+except ImportError as e:
+    print(f"Warning: Governance API not loaded: {e}")
+
+try:
+    from app.api.projects import router as projects_router
+    app.include_router(projects_router, tags=["Project Management"])
+except ImportError as e:
+    print(f"Warning: Projects API not loaded: {e}")
+
+try:
+    from app.api.dashboards import router as dashboards_router
+    app.include_router(dashboards_router, tags=["Dashboards & Charts"])
+except ImportError as e:
+    print(f"Warning: Dashboards API not loaded: {e}")
 
 # Add CORS middleware
 # Add CORS middleware

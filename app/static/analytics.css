@@ -1,0 +1,227 @@
+/* MithrilLog Enterprise Analytics Styles */
+
+/* Analytics Panel */
+.analytics-panel {
+  margin: 2rem 0;
+}
+
+.analytics-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* KPI Row */
+.kpi-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+}
+
+.kpi-card {
+  background: linear-gradient(135deg, var(--surface-glass, rgba(30, 30, 40, 0.7)), var(--surface-glass-dark, rgba(20, 20, 30, 0.8)));
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.1));
+  border-radius: var(--radius-lg, 12px);
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.kpi-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+.kpi-label {
+  font-size: 0.75rem;
+  color: var(--text-secondary, rgba(255, 255, 255, 0.6));
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.kpi-value {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--text-primary, #fff);
+  line-height: 1.1;
+}
+
+.kpi-trend {
+  font-size: 0.8rem;
+  color: var(--success-color, #4ade80);
+}
+
+.kpi-trend.warning {
+  color: var(--warning-color, #fbbf24);
+}
+
+.kpi-trend.error {
+  color: var(--error-color, #f87171);
+}
+
+/* Charts Row */
+.charts-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
+.chart-card {
+  background: var(--surface-glass, rgba(30, 30, 40, 0.7));
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.1));
+  border-radius: var(--radius-lg, 12px);
+  padding: 1rem;
+}
+
+.chart-card h4 {
+  font-size: 0.875rem;
+  margin-bottom: 0.75rem;
+  color: var(--text-secondary, rgba(255, 255, 255, 0.8));
+}
+
+.chart-wrapper {
+  position: relative;
+  width: 100%;
+  height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.chart-wrapper canvas {
+  max-width: 100%;
+  max-height: 100%;
+}
+
+/* Process Mining Card */
+.process-mining-card {
+  background: var(--surface-glass, rgba(30, 30, 40, 0.7));
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.1));
+  border-radius: var(--radius-lg, 12px);
+  padding: 1.25rem;
+}
+
+.process-mining-card h4 {
+  font-size: 1rem;
+  margin-bottom: 0.25rem;
+}
+
+.activity-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.activity-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: var(--radius-md, 8px);
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+}
+
+.activity-item .activity-name {
+  color: var(--text-primary, #fff);
+}
+
+.activity-item .activity-count {
+  background: var(--accent-color, #6366f1);
+  color: white;
+  padding: 0.125rem 0.5rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+/* Chart Colors */
+.chart-color-1 { background: #6366f1; }
+.chart-color-2 { background: #8b5cf6; }
+.chart-color-3 { background: #a78bfa; }
+.chart-color-4 { background: #c4b5fd; }
+.chart-color-5 { background: #22c55e; }
+.chart-color-6 { background: #f59e0b; }
+.chart-color-7 { background: #ef4444; }
+.chart-color-8 { background: #ec4899; }
+
+/* Simple Bar Chart (CSS-only fallback) */
+.bar-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+  height: 150px;
+  padding-top: 1rem;
+}
+
+.bar-chart .bar {
+  flex: 1;
+  background: linear-gradient(to top, #6366f1, #8b5cf6);
+  border-radius: 4px 4px 0 0;
+  position: relative;
+  min-width: 24px;
+  transition: height 0.3s ease;
+}
+
+.bar-chart .bar:hover {
+  opacity: 0.8;
+}
+
+.bar-chart .bar-label {
+  position: absolute;
+  bottom: -20px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.65rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.bar-chart .bar-value {
+  position: absolute;
+  top: -18px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.7rem;
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+/* Pie Chart Legend */
+.chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  font-size: 0.8rem;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.legend-color {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .kpi-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .charts-row {
+    grid-template-columns: 1fr;
+  }
+  
+  .kpi-value {
+    font-size: 1.5rem;
+  }
+}
