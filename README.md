@@ -236,4 +236,39 @@ Environment values override the matching entries under `llm` in YAML configs, so
                │
            Clients / UI
 
+## License & Enterprise
+
+This software is licensed under the **Xcr9 Community License** - See [LICENSE](LICENSE)
+
+- ✅ **Free** for personal and non-commercial use
+- ✅ **Free** for small teams (up to 5 monitored servers)
+- 🏢 **Enterprise License** required for commercial use with more than 5 servers
+
+### Get Enterprise License
+
+Visit **[xcr9.site/pricing](https://xcr9.site/pricing.html)** to purchase an Enterprise license which includes:
+
+- Unlimited servers
+- Priority support
+- Custom integrations
+- SLA guarantees
+- Professional services
+
+## Part of Xcr9 Platform
+
+MithrilLog is part of the [Xcr9](https://xcr9.site) AI infrastructure suite:
+
+- **[MithrilLog](https://xcr9.site/mithrillog.html)** — AI-powered log management
+- **[AncientReport](https://xcr9.site/ancientreport.html)** — Autonomous observability (eBPF)
+- **[MetalHive](https://xcr9.site/metalhive.html)** — Bare-metal Docker orchestration
+
+### Contact
+
+- 🌐 Website: [xcr9.site](https://xcr9.site)
+- 📧 Sales: [xcr9.site/contact](https://xcr9.site/contact.html)
+
+---
+
+*© 2025 Xcr9. Building the future of AI infrastructure.*
+
            
