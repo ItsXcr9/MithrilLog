@@ -180,7 +180,7 @@ class HourlySummarizer:
                 "host": item.get("host", "unknown"),
                 "app": item.get("app", "-"),
                 "occurrences": item.get("occurrences", 1),
-                "message": self._clean_message(item.get("message", ""))[:100],
+                "message": self._clean_message(item.get("message", ""))[:500],
                 "sources": item.get("source_hosts", {}),
             }
             for item in limited_highlights
@@ -188,7 +188,7 @@ class HourlySummarizer:
         # Show top 10 filtered highlights for context (only ERROR and CRITICAL if configured)
         highlight_lines = [
             f"[{item.get('severity', 'info')}] {item.get('host', 'unknown')}/{item.get('app', '-')}"
-            f" ({item.get('occurrences', 1)}x) - {self._clean_message(item.get('message', ''))[:160]}"
+            f" ({item.get('occurrences', 1)}x) - {self._clean_message(item.get('message', ''))[:500]}"
             for item in highlights_for_analysis[:10]
         ]
         highlight_context = "\n".join(highlight_lines).strip()
@@ -226,6 +226,7 @@ class HourlySummarizer:
             "minute_rollup": minute_rollup,
             "highlights": highlights_sorted[:15],  # Show more highlights in report
             "highlight_analysis": highlight_analysis,
+            "service_health": self._aggregate_service_health(highlights_sorted, start, end),
         }
 
         report_path = self.report_dir / f"{start:%Y/%m/%d/%H}.json"
@@ -272,7 +273,7 @@ class HourlySummarizer:
             app = item.get("app", "-")[:8]
             severity = item.get("severity", "info")
             occ = item.get("occurrences", 1)
-            message = HourlySummarizer._clean_message(item.get("message", ""))[:50]
+            message = HourlySummarizer._clean_message(item.get("message", ""))[:500]
             sources = item.get("sources") or item.get("source_hosts") or {}
             if sources:
                 source_str = ", ".join(
@@ -302,34 +303,34 @@ class HourlySummarizer:
                         if "msg" in msg_data:
                             msg_text = str(msg_data["msg"])
                             # Extract key part (e.g., "saving checkpoint snapshot min: 162")
-                            if len(msg_text) > 60:
+                            if len(msg_text) > 2000:
                                 # Take first meaningful part
                                 parts = msg_text.split(",")
                                 if parts:
                                     msg_text = parts[0]
-                            return f"{data.get('c', '')}: {msg_text}"[:80]
+                            return f"{data.get('c', '')}: {msg_text}"[:1000]
                 
                 # Direct msg field
                 if "msg" in data:
                     msg_val = data["msg"]
                     if isinstance(msg_val, str):
-                        return msg_val[:80]
+                        return msg_val[:1000]
                     elif isinstance(msg_val, dict) and "msg" in msg_val:
-                        return str(msg_val["msg"])[:80]
+                        return str(msg_val["msg"])[:1000]
                 
                 # message field
                 if "message" in data:
                     msg = data["message"]
                     if isinstance(msg, dict) and "msg" in msg:
-                        return str(msg["msg"])[:80]
-                    return str(msg)[:80]
+                        return str(msg["msg"])[:1000]
+                    return str(msg)[:1000]
                 
                 # MongoDB format: c + msg
                 if "c" in data:
                     component = data.get("c", "")
                     msg_text = data.get("msg", "")
                     if msg_text:
-                        return f"{component}: {msg_text}"[:80]
+                        return f"{component}: {msg_text}"[:1000]
                     return component[:80]
             except (json.JSONDecodeError, KeyError, TypeError):
                 pass
@@ -337,17 +338,61 @@ class HourlySummarizer:
         # For very long messages, try to extract first meaningful part
         message = message.replace("  ", " ").strip()
         # If it's still very long, take first sentence or first 80 chars
-        if len(message) > 100:
+        if len(message) > 1000:
             # Try to find first sentence
             for sep in [". ", "! ", "? ", "\n", "; "]:
                 if sep in message:
                     message = message.split(sep, 1)[0]
                     break
             # Final truncation
-            if len(message) > 80:
-                message = message[:77] + "..."
+            if len(message) > 500:
+                message = message[:497] + "..."
         
         return message
+
+    def _aggregate_service_health(self, highlights: List[Dict[str, Any]], start: datetime, end: datetime) -> Dict[str, Any]:
+        """Aggregate anomalies and health stats by service (app)."""
+        services: Dict[str, Dict[str, Any]] = {}
+        
+        # Process all highlights to build service profile
+        for item in highlights:
+            app = item.get("app", "unknown")
+            if app == "-":
+                app = "unknown"
+                
+            if app not in services:
+                services[app] = {
+                    "anomalies": 0,
+                    "event_count": 0, # We don't have per-app total event count easily available here without re-querying stats
+                                      # But we can track anomaly occurrences
+                    "severities": Counter(),
+                    "top_issues": []
+                }
+            
+            occ = item.get("occurrences", 1)
+            severity = item.get("severity", "info").lower()
+            
+            services[app]["anomalies"] += occ
+            services[app]["severities"][severity] += occ
+            
+            # Keep top 3 issues per service
+            if len(services[app]["top_issues"]) < 3:
+                services[app]["top_issues"].append({
+                    "severity": severity,
+                    "message": self._clean_message(item.get("message", ""))[:500],
+                    "count": occ
+                })
+
+        # Convert Counters to dicts for JSON serialization
+        result = {}
+        for app, data in services.items():
+            result[app] = {
+                "anomalies": data["anomalies"],
+                "severities": dict(data["severities"]),
+                "top_issues": data["top_issues"]
+            }
+            
+        return result
 
     @staticmethod
     def _clip_text(text: str, max_chars: int = 1200) -> str:

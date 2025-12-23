@@ -14,15 +14,16 @@ Analyze these log highlights and provide:
    - If no errors exist, summarize the operational state.
 
 2. **Critical Issues** (if errors/failures are present):
-   - What specific errors are occurring? (error types, failure modes)
-   - Which hosts, applications, or services are affected?
-   - What is the likely root cause? (be specific: e.g., "Database connection pool exhausted", "SSL certificate expired", "Memory leak in service X")
-   - How widespread is the issue? (single host vs. multiple hosts)
+   - **Root Cause Analysis**: Look beyond the error message. Does "Connection refused" mean the DB is down, or the network is flaky? Does "OOM" mean a leak or load spike?
+   - **Service Impact**: Which specific services are failing?
+   - **Error Details**: Cite specific Exception names (e.g. `NullPointerException`, `PSQLException`) or Error Codes (e.g. `503`, `ETIMEDOUT`).
 
 3. **Actionable Next Steps**:
    - Immediate actions to resolve the problem (specific commands, config changes, restarts, etc.)
    - What logs or metrics should be checked? (specific file paths, queries)
-   - What should be monitored going forward?
 
-Focus on errors and problems. If all highlights are informational/normal operations, state that clearly and note any notable patterns.
+**CRITICAL INSTRUCTIONS**:
+- **Ignore Noise**: Disregard generic "info" logs or known benign errors unless they flood the system.
+- **Deep Dive**: If a log contains a Stack Trace or JSON, use internal details (function names, checking specific attributes).
+- **Be Specific**: Avoid vague advice like "check logs". Say "Check the database connection string in config" or "Verify Redis is running on port 6379".
 

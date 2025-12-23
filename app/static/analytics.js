@@ -234,6 +234,7 @@ class AnalyticsManager {
       this.renderHostsChart(items);
       this.renderErrorTrendChart(items);
       this.renderProcessActivities(items);
+      this.renderServiceHealth(items);
       
     } catch (error) {
       console.error('Analytics load error:', error);
@@ -399,6 +400,136 @@ class AnalyticsManager {
         <span class="activity-count">${this.formatNumber(count)}</span>
       </div>
     `).join('');
+  }
+
+  renderServiceHealth(items) {
+    const serviceListEl = document.getElementById('service-health-list');
+    const anomalyListEl = document.getElementById('anomaly-list');
+    if (!serviceListEl || !anomalyListEl) return;
+
+    // Use backend aggregation if available, otherwise client-side fallback
+    let services = {};
+    let recentAnomalies = [];
+    
+    // Check if latest item has service_health (new feature)
+    const hasBackendData = items.length > 0 && items[0].service_health;
+    
+    if (hasBackendData) {
+      // Merge last 24h of backend data
+      items.slice(0, 24).forEach(item => {
+        if (!item.service_health) return;
+        Object.entries(item.service_health).forEach(([app, data]) => {
+          if (!services[app]) {
+            services[app] = { anomalies: 0, severities: {}, top_issues: [] };
+          }
+          services[app].anomalies += data.anomalies || 0;
+          // Merge severities
+          Object.entries(data.severities || {}).forEach(([sev, count]) => {
+            services[app].severities[sev] = (services[app].severities[sev] || 0) + count;
+          });
+          // Collect issues
+          services[app].top_issues.push(...(data.top_issues || []));
+        });
+      });
+    } else {
+      // Client-side fallback using highlights
+      services = this._aggregateServiceHealthClientSide(items);
+    }
+
+    // Process Recent Anomalies List (flatten issues)
+    Object.entries(services).forEach(([app, data]) => {
+      if (data.top_issues) {
+        data.top_issues.forEach(issue => {
+           recentAnomalies.push({ ...issue, app });
+        });
+      }
+    });
+    
+    // Sort anomalies by severity/recency
+    const sevPriority = { emerg:0, alert:1, crit:2, error:3, err:3, warning:4, warn:4, info:5 };
+    recentAnomalies.sort((a, b) => {
+      const pA = sevPriority[a.severity] ?? 9;
+      const pB = sevPriority[b.severity] ?? 9;
+      return pA - pB;
+    });
+
+    // Render Services
+    const serviceArray = Object.entries(services)
+        .map(([name, data]) => ({ name, ...data }))
+        .sort((a, b) => b.anomalies - a.anomalies); // Sort by anomaly count
+
+    if (serviceArray.length === 0) {
+      serviceListEl.innerHTML = '<div class="empty-state-small">No service data available</div>';
+    } else {
+      serviceListEl.innerHTML = serviceArray.map(svc => {
+        let statusClass = 'healthy';
+        if (svc.anomalies > 10) statusClass = 'critical';
+        else if (svc.anomalies > 0) statusClass = 'warning';
+        
+        return `
+        <div class="service-item">
+          <div class="service-info">
+            <span class="service-name">${this.escapeHtml(svc.name)}</span>
+            <span class="service-meta">${svc.anomalies} anomalies</span>
+          </div>
+          <div class="service-score">
+            <span class="score-badge ${statusClass}">${statusClass.toUpperCase()}</span>
+          </div>
+        </div>
+        `;
+      }).join('');
+    }
+
+    // Render Anomalies
+    if (recentAnomalies.length === 0) {
+      anomalyListEl.innerHTML = '<div class="empty-state-small">No anomalies detected recently.</div>';
+    } else {
+      anomalyListEl.innerHTML = recentAnomalies.slice(0, 15).map(issue => {
+        const sevClass = issue.severity.toLowerCase();
+        return `
+        <div class="anomaly-item">
+          <div class="anomaly-header">
+            <span class="anomaly-sev ${sevClass}">${this.escapeHtml(issue.severity)}</span>
+            <span class="muted">${this.escapeHtml(issue.app)}</span>
+          </div>
+          <div class="anomaly-msg" title="${this.escapeHtml(issue.message)}">
+            ${this.escapeHtml(issue.message)}
+          </div>
+        </div>
+        `;
+      }).join('');
+    }
+
+    // Filter Logic
+    const filterInput = document.getElementById('service-filter');
+    if (filterInput) {
+      filterInput.onkeyup = () => {
+        const filter = filterInput.value.toLowerCase();
+        const items = serviceListEl.getElementsByClassName('service-item');
+        Array.from(items).forEach(item => {
+          const name = item.querySelector('.service-name').textContent.toLowerCase();
+          item.style.display = name.includes(filter) ? 'grid' : 'none';
+        });
+      };
+    }
+  }
+
+  _aggregateServiceHealthClientSide(items) {
+    const services = {};
+    items.slice(0, 24).forEach(item => {
+      // Use highlights if available
+      (item.highlights || []).forEach(h => {
+         const app = h.app || 'unknown';
+         if (!services[app]) services[app] = { anomalies: 0, severities: {}, top_issues: [] };
+         services[app].anomalies += h.occurrences || 1;
+         services[app].top_issues.push({
+           severity: h.severity,
+           message: h.message,
+           count: h.occurrences
+         });
+      });
+    });
+    return services;
   }
 
   formatNumber(num) {

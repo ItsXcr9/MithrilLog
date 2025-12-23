@@ -503,37 +503,52 @@ const buildTrendCard = (item) => {
       return '';
     }
     
+    const renderItem = (issue, idx) => {
+      const message = issue.sample_message || '';
+      const lines = message.split('\n');
+      const errorType = lines[0] || 'Unknown Error';
+      const stackTrace = lines.slice(1).join('\n');
+      const fullContent = escapeHtml(message);
+      
+      return `
+        <div class="error-explanation">
+          <div class="error-number">#${idx + 1}</div>
+          <div class="error-content">
+            <div class="error-title">
+              <span class="pill severity-${issue.severity || 'info'}">${issue.severity || 'info'}</span>
+              <span class="error-type">${escapeHtml(errorType)}</span>
+              <div class="error-header-actions">
+                <button class="copy-btn" data-content="${fullContent}">Copy</button>
+              </div>
+            </div>
+            ${stackTrace ? `
+              <details class="error-details">
+                <summary>View Stack Trace</summary>
+                <pre>${escapeHtml(stackTrace)}</pre>
+              </details>
+            ` : ''}
+          </div>
+        </div>
+      `;
+    };
+
+    const topItems = issues.slice(0, 3);
+    const remainingItems = issues.slice(3);
+    
     return `
       <div class="trend-category">
         <h3>${emoji} ${type} Issues (${issues.length})</h3>
-        ${issues.map((issue, idx) => {
-          const message = issue.sample_message || '';
-          const lines = message.split('\n');
-          const errorType = lines[0] || 'Unknown Error';
-          const stackTrace = lines.slice(1).join('\n');
-          const fullContent = escapeHtml(message);
-          
-          return `
-            <div class="error-explanation">
-              <div class="error-number">#${idx + 1}</div>
-              <div class="error-content">
-                <div class="error-title">
-                  <span class="pill severity-${issue.severity || 'info'}">${issue.severity || 'info'}</span>
-                  <span class="error-type">${escapeHtml(errorType)}</span>
-                  <div class="error-header-actions">
-                    <button class="copy-btn" data-content="${fullContent}">Copy</button>
-                  </div>
-                </div>
-                ${stackTrace ? `
-                  <details class="error-details">
-                    <summary>View Stack Trace</summary>
-                    <pre>${escapeHtml(stackTrace)}</pre>
-                  </details>
-                ` : ''}
-              </div>
+        ${topItems.map((issue, idx) => renderItem(issue, idx)).join('')}
+        ${remainingItems.length > 0 ? `
+          <details class="trend-more">
+            <summary class="ml-btn ml-btn--sm" style="margin-top: 1rem; width: 100%; justify-content: center;">
+              Show ${remainingItems.length} more issues...
+            </summary>
+            <div style="margin-top: 1rem;">
+              ${remainingItems.map((issue, idx) => renderItem(issue, idx + 3)).join('')}
             </div>
-          `;
-        }).join('')}
+          </details>
+        ` : ''}
       </div>
     `;
   };

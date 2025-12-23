@@ -14,8 +14,14 @@ Resolved Issues (Active previously, not seen today):
 {resolved_issues}
 
 Based on the above lists, write a concise "Trend Analysis" report.
-1. **Progress Update**: Highlight what has been fixed (Resolved Issues).
-2. **Persistent Problems**: Summarize the ongoing issues that need continued attention.
-3. **New Risks**: Briefly mention significant new errors.
+1. **Progress Update**: Highlight what has been fixed (Resolved Issues). Mention specific error types or services that recovered.
+2. **Persistent Problems**: Summarize the ongoing issues that need continued attention. **Group similar errors** by likely root cause (e.g. "Database connectivity", "Memory pressure"). Do not just list error messages.
+3. **New Risks**: Briefly mention significant new errors and their potential impact.
 
-Keep it professional and focused on the change in state (Fixed vs Broken).
+**CRITICAL INSTRUCTIONS**:
+- Ignore generic noise (e.g. "broken pipe" without context, "connection reset" if rare).
+- Focus on SYSTEMATIC failures (timeouts, repeated exceptions, resource exhaustion).
+- Be specific: cite the Service/App name and the specific Error Code/Exception provided in the log snippets.
+- If the log message looks like a JSON object, extract the meaningful "msg" or "error" field.
+
+Keep it professional, analytical, and focused on the change in state (Fixed vs Broken).

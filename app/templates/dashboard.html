@@ -123,43 +123,6 @@
         </div>
       </section>
 
-      <section class="error-monitor glass" id="error-monitor">
-        <div class="section-header">
-          <h2>Notable Incidents</h2>
-          <div class="controls">
-            <label>
-              Show last
-              <select id="error-limit">
-                <option value="4" selected>4</option>
-                <option value="6">6</option>
-                <option value="10">10</option>
-                <option value="16">16</option>
-              </select>
-              windows
-            </label>
-            <button id="error-refresh">Refresh</button>
-          </div>
-        </div>
-        <div id="error-feed" class="card-grid tight"></div>
-      </section>
-
-      <section class="trend-panel glass" id="trend-panel">
-        <div class="section-header">
-          <div>
-            <h2>▦ Trend Analysis</h2>
-            <p class="section-desc">3-day pattern comparison</p>
-          </div>
-          <div class="controls">
-            <button id="trend-refresh" class="btn-icon" title="Refresh">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
-              </svg>
-            </button>
-          </div>
-        </div>
-        <div id="trend-feed"></div>
-      </section>
-
       <!-- Enterprise Analytics Section -->
       <section class="analytics-panel glass" id="analytics-panel">
         <div class="section-header">
@@ -226,8 +189,73 @@
               <p class="muted">Connect to ClickHouse for process mining data</p>
             </div>
           </div>
+          
+          <!-- Service Intelligence Row -->
+          <div class="service-row">
+            <!-- Service Health Card -->
+            <div class="service-health-card">
+              <div class="card-header-row">
+                <h4>Service Intelligence</h4>
+                <div class="search-wrap">
+                  <input type="text" id="service-filter" placeholder="Filter services..." class="compact-input">
+                </div>
+              </div>
+              <div class="service-list-container">
+                <div id="service-health-list" class="service-list">
+                  <div class="empty-state-small">Loading service data...</div>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Anomaly Feed Card -->
+            <div class="anomaly-feed-card">
+               <h4>Recent Anomalies</h4>
+               <div id="anomaly-list" class="anomaly-list">
+                 <div class="empty-state-small">No anomalies detected recently.</div>
+               </div>
+            </div>
+          </div>
         </div>
       </section>
+
+      <section class="error-monitor glass" id="error-monitor">
+        <div class="section-header">
+          <h2>Notable Incidents</h2>
+          <div class="controls">
+            <label>
+              Show last
+              <select id="error-limit">
+                <option value="4" selected>4</option>
+                <option value="6">6</option>
+                <option value="10">10</option>
+                <option value="16">16</option>
+              </select>
+              windows
+            </label>
+            <button id="error-refresh">Refresh</button>
+          </div>
+        </div>
+        <div id="error-feed" class="card-grid tight"></div>
+      </section>
+
+      <section class="trend-panel glass" id="trend-panel">
+        <div class="section-header">
+          <div>
+            <h2>▦ Trend Analysis</h2>
+            <p class="section-desc">3-day pattern comparison</p>
+          </div>
+          <div class="controls">
+            <button id="trend-refresh" class="btn-icon" title="Refresh">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+        <div id="trend-feed"></div>
+      </section>
+
+
 
       <section class="daily-panel glass">
         <div class="section-header">

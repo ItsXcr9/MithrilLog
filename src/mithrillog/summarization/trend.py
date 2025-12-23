@@ -166,7 +166,7 @@ class TrendSummarizer:
         lines = []
         for i in issues[:10]: # Limit to 10
             sev = i.get("severity", "info")
-            msg = i.get("sample_message", "")[:100]
+            msg = i.get("sample_message", "")[:500]
             lines.append(f"- [{sev}] {msg}")
         if len(issues) > 10:
             lines.append(f"... and {len(issues) - 10} more.")

@@ -132,7 +132,7 @@ class DailySummarizer:
                 "host": item.get("host", "unknown"),
                 "app": item.get("app", "-"),
                 "occurrences": item.get("occurrences", 1),
-                "message": (item.get("message", "") or "")[:200],
+                "message": (item.get("message", "") or "")[:500],
             }
             for item in limited_highlights
         ]
@@ -165,7 +165,7 @@ class DailySummarizer:
             "summary": summary_text,
             "stats": stats_struct,
             "hourly_links": hourly_links,
-            "highlights": highlights_sorted[:30],
+            "highlights": highlights_sorted[:50],
             "notable_incidents": notable_incidents,
         }
 
@@ -199,7 +199,7 @@ class DailySummarizer:
         for entry in entries:
             hour = entry["hour"]
             summary = entry.get("summary", "")
-            lines.append(f"  - {hour}: {summary[:160]}")
+            lines.append(f"  - {hour}: {summary[:500]}")
         return "\n".join(lines)
 
     @staticmethod
@@ -207,13 +207,13 @@ class DailySummarizer:
         if not highlights:
             return "No daily highlights."
         lines = ["Top samples:"]
-        for item in highlights[:30]:
+        for item in highlights[:50]:
             host = item.get("host", "unknown")
             app = item.get("app", "-")
             severity = item.get("severity", "info")
             occ = item.get("occurrences", 1)
             message = item.get("message", "")
-            lines.append(f"  - [{severity}] {host}/{app} ({occ}x): {message[:200]}")
+            lines.append(f"  - [{severity}] {host}/{app} ({occ}x): {message[:500]}")
         return "\n".join(lines)
 
     @staticmethod
@@ -235,6 +235,6 @@ class DailySummarizer:
                 lines.append(f"  Severity breakdown: {severity_list}")
             if highlights:
                 top_error = highlights[0]
-                lines.append(f"  Top error: [{top_error.get('severity', 'err')}] {top_error.get('host', 'unknown')}/{top_error.get('app', '-')} - {top_error.get('message', '')[:150]}")
+                lines.append(f"  Top error: [{top_error.get('severity', 'err')}] {top_error.get('host', 'unknown')}/{top_error.get('app', '-')} - {top_error.get('message', '')[:500]}")
         return "\n".join(lines)
 
